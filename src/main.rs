@@ -24,28 +24,32 @@ fn main() {
         // read the request into the buffer
         stream.read(&mut buffer).unwrap();
 
-        println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
-        println!("================================");
-
         let parsed_request = parse_request(&mut buffer);
 
-        println!("body: {}", parsed_request.body.as_str());
+        println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+        println!("Reqeust Body: {}", parsed_request.body.as_str());
+        println!("================================");
 
         let request_path = parsed_request.path.as_str();
         let request_method = parsed_request.method.as_str();
 
 
         // match for routing
-        let response: String = match (request_method, request_path) {
+        let response: Vec<u8> = match (request_method, request_path) {
             ("GET", "/") => routes::handle_home(),
             ("GET", "/about") => routes::handle_about(),
             ("GET",  "/submit") => routes::handle_submit_get(),
             ("POST", "/submit") => routes::handle_submit_post(),
+            ("GET", "/index") => routes::serve_file("index.html"),
+            ("GET", "/style.css") => routes::serve_file("style.css"),
+            ("GET", "/scripts.js") => routes::serve_file("scripts.js"),
+            ("GET", "/images/yasuo.jpg") => routes::serve_file("images/yasuo.jpg"),
 
             _ => routes::handle_404(),
         };
 
-        stream.write(response.as_bytes()).unwrap();
+        log_response(&response);
+        stream.write_all(&response).unwrap();
 
         //send the response right away because it might stay in the buffer
         stream.flush().unwrap();
@@ -80,5 +84,38 @@ fn parse_request(buffer: &[u8]) -> HttpRequest {
         headers,
         body,
     }
+}
+
+
+fn get_content_type(file_path: &str) -> &str {
+    match file_path {
+        p if p.ends_with(".html") => "text/html",
+        p if p.ends_with(".css") => "text/css",
+        p if p.ends_with(".js") => "application/javascript",
+        p if p.ends_with(".jpg") || p.ends_with(".jpeg") => "image/jpeg",
+        p if p.ends_with(".png") => "image/png",
+        _ => "text/plain",
+    }
+}
+
+fn log_response(response: &[u8]) {
+    // Find the end of headers (\r\n\r\n)
+    if let Some(pos) = response.windows(4).position(|w| w == b"\r\n\r\n") {
+        println!("=== Response Headers ===");
+        println!("{}", String::from_utf8_lossy(&response[..pos]));
+        
+        let body_start = pos + 4;
+        println!("Body length: {} bytes", response.len() - body_start);
+        
+        // Print text bodies
+        if let Ok(text) = String::from_utf8(response[body_start..].to_vec()) {
+            if !text.is_empty() {
+                println!("Body:\n{}", text);
+            }
+        }
+    } else {
+        println!("[Malformed HTTP response]");
+    }
+    println!("================================");
 }
 

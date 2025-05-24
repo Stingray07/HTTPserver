@@ -2,14 +2,7 @@ use std::net::TcpListener;
 use std::io::{Read, Write};
 
 mod routes;
-
-struct HttpRequest{
-    method: String,
-    path: String, 
-    version: String,
-    headers: Vec<(String, String)>,
-    body: String,
-}
+mod http_utils;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -24,10 +17,10 @@ fn main() {
         // read the request into the buffer
         stream.read(&mut buffer).unwrap();
 
-        let parsed_request = parse_request(&mut buffer);
+        let parsed_request = http_utils::request::parse_request(&mut buffer);
 
         println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
-        println!("Reqeust Body: {}", parsed_request.body.as_str());
+        println!("Request Body: {}", parsed_request.body.as_str());
         println!("================================");
 
         let request_path = parsed_request.path.as_str();
@@ -56,47 +49,6 @@ fn main() {
     }
 }
 
-fn parse_request(buffer: &[u8]) -> HttpRequest {
-    let request_string = String::from_utf8_lossy(buffer);
-    let mut sections = request_string.split("\r\n\r\n"); // Split headers/body
-    
-    // Parse headers section
-    let headers_section = sections.next().unwrap();
-    let mut lines = headers_section.lines();
-    
-    // Parse request line
-    let request_line = lines.next().unwrap();
-    let mut parts = request_line.split_whitespace();
-    
-    // Get headers
-    let headers: Vec<_> = lines
-        .filter_map(|line| line.split_once(':'))
-        .map(|(k, v)| (k.trim().to_string(), v.trim().to_string()))
-        .collect();
-    
-    // Get body (if exists)
-    let body = sections.next().unwrap_or("").to_string();
-
-    HttpRequest {
-        method: parts.next().unwrap().to_string(),
-        path: parts.next().unwrap().to_string(),
-        version: parts.next().unwrap().to_string(),
-        headers,
-        body,
-    }
-}
-
-
-fn get_content_type(file_path: &str) -> &str {
-    match file_path {
-        p if p.ends_with(".html") => "text/html",
-        p if p.ends_with(".css") => "text/css",
-        p if p.ends_with(".js") => "application/javascript",
-        p if p.ends_with(".jpg") || p.ends_with(".jpeg") => "image/jpeg",
-        p if p.ends_with(".png") => "image/png",
-        _ => "text/plain",
-    }
-}
 
 fn log_response(response: &[u8]) {
     // Find the end of headers (\r\n\r\n)

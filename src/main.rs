@@ -1,8 +1,12 @@
 use std::net::TcpListener;
 use std::io::{Read, Write};
+use std::path::Path;
 
-mod routes;
 mod http_utils;
+mod routes;
+
+use http_utils::response;
+use http_utils::request;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -26,18 +30,16 @@ fn main() {
         let request_path = parsed_request.path.as_str();
         let request_method = parsed_request.method.as_str();
 
-
         // match for routing
-        let response: Vec<u8> = match (request_method, request_path) {
-            ("GET", "/") => routes::handle_home(),
-            ("GET", "/about") => routes::handle_about(),
-            ("GET",  "/submit") => routes::handle_submit_get(),
-            ("POST", "/submit") => routes::handle_submit_post(),
-            ("GET", "/index") => routes::serve_file("index.html"),
-            ("GET", "/style.css") => routes::serve_file("style.css"),
-            ("GET", "/scripts.js") => routes::serve_file("scripts.js"),
-            ("GET", "/images/yasuo.jpg") => routes::serve_file("images/yasuo.jpg"),
+        let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
+            ("GET", Some("/")) => routes::handle_home(),
+            ("GET", Some("/about")) => routes::handle_about(),
+            ("GET",  Some("/submit")) => routes::handle_submit_get(),
+            ("POST", Some("/submit")) => routes::handle_submit_post(),
+            ("GET", Some(request_path)) => response::serve_file(request_path),
 
+            (_, None) => routes::handle_403(),
+            
             _ => routes::handle_404(),
         };
 

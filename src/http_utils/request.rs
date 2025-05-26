@@ -6,6 +6,15 @@ pub struct HttpRequest{
     pub body: String,
 }
 
+// TODO
+pub fn is_403(request: HttpRequest) -> bool {
+    if request.headers.get("Host").is_none() && request.version == "HTTP/1.1" {
+        return true;
+    }
+
+    if 
+}
+
 pub fn parse_request(buffer: &[u8]) -> HttpRequest {
     let request_string = String::from_utf8_lossy(buffer);
     let mut sections = request_string.split("\r\n\r\n"); // Split headers/body
@@ -33,5 +42,13 @@ pub fn parse_request(buffer: &[u8]) -> HttpRequest {
         version: parts.next().unwrap().to_string(),
         headers,
         body,
+    }
+}
+
+pub fn sanitize_path(path: &str) -> Option<&str> {
+    if path.contains("..") || path.contains('\0') || path.contains("/.") {
+        None
+    } else {
+        Some(path)
     }
 }

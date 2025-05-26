@@ -1,4 +1,27 @@
+use std::fs;
+use std::path::Path;
+use crate::http_utils::{response, status};
 
+
+pub fn serve_file(file_path: &str) -> Vec<u8> {
+    let base = Path::new("static");
+    let path = base.join(file_path.trim_start_matches("/"));
+
+    if !path.starts_with(base) {
+        return build_response(status::FORBIDDEN, "text/html", b"FORBIDDEN")
+    }
+
+    let content_type = response::get_content_type(file_path);
+
+    match fs::read(&path) {
+        Ok(contents) => {
+            response::build_response(status::OK, content_type, &contents)
+        }
+        Err(_) => {
+            response::build_response(status::NOT_FOUND, "404 Not Found", b"The requested file was not found")
+        }
+    }
+}
 
 pub fn get_content_type(file_path: &str) -> &str {
     match file_path {

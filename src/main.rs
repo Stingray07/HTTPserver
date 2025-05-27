@@ -1,4 +1,4 @@
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -21,7 +21,16 @@ fn main() {
         // read the request into the buffer
         stream.read(&mut buffer).unwrap();
 
-        let parsed_request = http_utils::request::parse_request(&mut buffer);
+        let parsed_request = match http_utils::request::parse_request(&buffer) {
+            Ok(req) => req,
+            Err(_) => {
+                eprintln!("Parse Failed");
+                let _ = send_response(&mut stream, routes::handle_400());
+                continue;
+            }   
+        };
+
+
 
         println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
         println!("Request Body: {}", parsed_request.body.as_str());
@@ -32,6 +41,7 @@ fn main() {
 
         // match for routing
         let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
+            (_, Some("400")) => routes::handle_400(),
             ("GET", Some("/")) => routes::handle_home(),
             ("GET", Some("/about")) => routes::handle_about(),
             ("GET",  Some("/submit")) => routes::handle_submit_get(),
@@ -43,12 +53,18 @@ fn main() {
             _ => routes::handle_404(),
         };
 
-        log_response(&response);
-        stream.write_all(&response).unwrap();
-
-        //send the response right away because it might stay in the buffer
-        stream.flush().unwrap();
+        // Modify later
+        let _ = send_response(&mut stream, response);
     }
+}
+
+fn send_response(stream: &mut TcpStream, response: Vec<u8>) -> std::io::Result<()> {
+    log_response(&response);
+    stream.write_all(&response).unwrap();
+
+    // Send the response right away because it might stay in the buffer
+    stream.flush().unwrap();
+    Ok(())
 }
 
 

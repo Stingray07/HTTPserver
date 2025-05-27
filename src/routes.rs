@@ -29,3 +29,7 @@ pub fn handle_403() -> Vec<u8> {
     html_response(status::FORBIDDEN, "FORBIDDEN", "FORBIDDEN ACCESS")
 }
 
+pub fn handle_400() -> Vec<u8> {
+    html_response(status::BAD_REQUEST, "BAD_REQUEST", "BAD REQUEST")
+}
+

@@ -19,7 +19,11 @@ fn main() {
         let mut buffer = [0; 1024];
 
         // read the request into the buffer
-        stream.read(&mut buffer).unwrap();
+        if let Err(e) = stream.read(&mut buffer) {
+            eprintln!("Failed to read from stream: {}", e);
+            continue;
+        }
+        
 
         let parsed_request = match http_utils::request::parse_request(&buffer) {
             Ok(req) => req,
@@ -45,7 +49,7 @@ fn main() {
             ("GET", Some("/")) => routes::handle_home(),
             ("GET", Some("/about")) => routes::handle_about(),
             ("GET",  Some("/submit")) => routes::handle_submit_get(),
-            ("POST", Some("/submit")) => routes::handle_submit_post(),
+            ("POST", Some("/submit")) => routes::handle_submit_post(&parsed_request),
             ("GET", Some(request_path)) => response::serve_file(request_path),
 
             (_, None) => routes::handle_403(),

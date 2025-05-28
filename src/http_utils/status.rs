@@ -1,14 +1,29 @@
-pub const OK: &[u8] = b"HTTP/1.1 200 OK\r\n";
-pub const CREATED: &[u8] = b"HTTP/1.1 201 CREATED\r\n";
-pub const NO_CONTENT: &[u8] = b"HTTP/1.1 201 NO BODY\r\n";
+pub enum Status {
+    Ok = 200,
+    Created = 201,
+    NoContent = 204,
+    NotFound = 404,
+    BadRequest = 400,
+    Unauthorized = 401,
+    Forbidden = 403,
+    MethodNotAllowed = 405,
+    InternalError = 500,
+    ServiceUnavailable = 503,
+}
 
-
-pub const NOT_FOUND: &[u8] = b"HTTP/1.1 404 NOT FOUND\r\n";
-pub const BAD_REQUEST: &[u8] = b"HTTP/1.1 400 BAD REQUEST\r\n";
-pub const UNAUTHORIZED: &[u8] = b"HTTP/1.1 401 UNAUTHORIZED\r\n";
-pub const FORBIDDEN: &[u8] = b"HTTP/1.1 403 FORBIDDEN\r\n";
-pub const METHOD_NOT_ALLOWED: &[u8] = b"HTTP/1.1 405 METHOD NOT ALLOWED\r\n";
-
-
-pub const INTERNAL_ERROR: &[u8] = b"HTTP/1.1 500 INTERNAL SERVER ERROR\r\n";
-pub const SERVICE_UNAVAILABLE: &[u8] = b"HTTP/1.1 503 SERVICE UNAVAILABLE\r\n";
+impl Status {
+    pub fn line(&self) -> &'static [u8] {
+        match self {
+            Self::Ok => b"HTTP/1.1 200 OK\r\n",
+            Self::Created => b"HTTP/1.1 201 CREATED\r\n",
+            Self::NoContent => b"HTTP/1.1 204 NO CONTENT\r\n",
+            Self::NotFound => b"HTTP/1.1 404 NOT FOUND\r\n",
+            Self::BadRequest => b"HTTP/1.1 400 BAD REQUEST\r\n",
+            Self::Unauthorized => b"HTTP/1.1 401 UNAUTHORIZED\r\n",
+            Self::Forbidden => b"HTTP/1.1 403 FORBIDDEN\r\n",
+            Self::MethodNotAllowed => b"HTTP/1.1 405 METHOD NOT ALLOWED\r\n",
+            Self::InternalError => b"HTTP/1.1 500 INTERNAL SERVER ERROR\r\n",
+            Self::ServiceUnavailable => b"HTTP/1.1 503 SERVICE UNAVAILABLE\r\n",
+        }
+    }
+}

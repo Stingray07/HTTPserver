@@ -1,35 +1,35 @@
-use crate::http_utils::{response::html_response, status};
+use crate::http_utils::{request::HttpRequest, response::html_response, status::Status};
 
 
 pub fn handle_about() -> Vec<u8> {
-    html_response(status::OK, "ABOUT", "about")
+    html_response(Status::Ok, "ABOUT", "about")
 }
 
 pub fn handle_home() -> Vec<u8> {
-    html_response(status::OK, "HOME", "HOME")
+    html_response(Status::Ok, "HOME", "HOME")
 }
 
 pub fn handle_404() -> Vec<u8> {
-    html_response(status::NOT_FOUND, "NOT FOUND", "The requested file was not found")
+    html_response(Status::NotFound, "NOT FOUND", "The requested file was not found")
 }
 
 pub fn handle_submit_get() -> Vec<u8> {
-    html_response(status::OK, "SUBMIT GET", "SUBMIT GET")
+    html_response(Status::Ok, "SUBMIT GET", "SUBMIT GET")
 }
 
-pub fn handle_submit_post() -> Vec<u8> {
-    html_response(status::OK, "SUBMIT POST", "SUBMIT POST")
+pub fn handle_submit_post(request: &HttpRequest) -> Vec<u8> {
+    html_response(Status::Ok, "SUBMIT POST", "SUBMIT POST")
 }
 
 pub fn handle_500() -> Vec<u8> {
-    html_response(status::INTERNAL_ERROR, "INTERNAL SERVER ERROR", "SERVER ERROR")
+    html_response(Status::InternalError, "INTERNAL SERVER ERROR", "SERVER ERROR")
 }
 
 pub fn handle_403() -> Vec<u8> {
-    html_response(status::FORBIDDEN, "FORBIDDEN", "FORBIDDEN ACCESS")
+    html_response(Status::Forbidden, "FORBIDDEN", "FORBIDDEN ACCESS")
 }
 
 pub fn handle_400() -> Vec<u8> {
-    html_response(status::BAD_REQUEST, "BAD_REQUEST", "BAD REQUEST")
+    html_response(Status::BadRequest, "BAD_REQUEST", "BAD REQUEST")
 }
 

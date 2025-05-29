@@ -2,11 +2,14 @@ use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
 use std::path::Path;
 
+
 mod http_utils;
 mod routes;
 
+use http_utils::api;
 use http_utils::response;
-use http_utils::request;
+use http_utils::request::{self, parse_web_request};
+use routes::web;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -23,13 +26,20 @@ fn main() {
             eprintln!("Failed to read from stream: {}", e);
             continue;
         }
-        
 
-        let parsed_request = match http_utils::request::parse_request(&buffer) {
+        let is_api = http_utils::request::is_api_request(&buffer);
+        
+        if is_api {
+            http_utils::api::parse_api_request()
+        } else {
+            parse_web_request(buffer)
+        }
+
+        let parsed_request = match http_utils::request::parse_web_request(&buffer) {
             Ok(req) => req,
             Err(_) => {
                 eprintln!("Parse Failed");
-                let _ = send_response(&mut stream, routes::handle_400());
+                let _ = send_response(&mut stream, web::handle_400());
                 continue;
             }   
         };
@@ -45,16 +55,16 @@ fn main() {
 
         // match for routing
         let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
-            (_, Some("400")) => routes::handle_400(),
-            ("GET", Some("/")) => routes::handle_home(),
-            ("GET", Some("/about")) => routes::handle_about(),
-            ("GET",  Some("/submit")) => routes::handle_submit_get(),
-            ("POST", Some("/submit")) => routes::handle_submit_post(&parsed_request),
+            (_, Some("400")) => web::handle_400(),
+            ("GET", Some("/")) => web::handle_home(),
+            ("GET", Some("/about")) => web::handle_about(),
+            ("GET",  Some("/submit")) => web::handle_submit_get(),
+            ("POST", Some("/submit")) => web::handle_submit_post(&parsed_request),
             ("GET", Some(request_path)) => response::serve_file(request_path),
 
-            (_, None) => routes::handle_403(),
+            (_, None) => web::handle_403(),
             
-            _ => routes::handle_404(),
+            _ => web::handle_404(),
         };
 
         // Modify later

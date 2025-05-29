@@ -11,6 +11,10 @@ pub enum Status {
     ServiceUnavailable = 503,
 }
 
+pub enum ParseError {
+    MalformedRequest
+}
+
 impl Status {
     pub fn line(&self) -> &'static [u8] {
         match self {

@@ -1,3 +1,5 @@
+use crate::http_utils::status::ParseError;
+
 pub struct HttpRequest{
     pub method: String,
     pub path: String, 
@@ -6,12 +8,7 @@ pub struct HttpRequest{
     pub body: String,
 }
 
-pub enum ParseError {
-    MalformedRequest
-}
-
-
-pub fn parse_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
+pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
     let request_string = String::from_utf8_lossy(buffer);
     let mut sections = request_string.split("\r\n\r\n"); // Split headers/body
     
@@ -51,4 +48,26 @@ pub fn sanitize_path(path: &str) -> Option<&str> {
     } else {
         Some(path)
     }
+}
+
+fn extract_path_from_buffer(buffer: &[u8]) -> Option<String> {
+    let request_line = buffer
+        .split(|&b| b == b'\r' || b == b'\n')
+        .next()?; // Get the first line (request line)
+
+    let request_line_str = std::str::from_utf8(request_line).ok()?;
+    let mut parts = request_line_str.split_whitespace();
+
+    let _method = parts.next()?; // Skip method
+    let path = parts.next()?;    // This is the path
+    Some(path.to_string())
+}
+
+
+pub fn is_api_request(buffer: &[u8]) -> bool {
+    let res = match extract_path_from_buffer(buffer) {
+        Some(path) => path.starts_with("/api/"),
+        None => false,
+    };
+    res
 }

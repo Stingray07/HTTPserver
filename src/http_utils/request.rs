@@ -1,4 +1,5 @@
 use crate::http_utils::status::ParseError;
+use crate::http_utils::api::ApiRequest;
 
 pub struct HttpRequest{
     pub method: String,
@@ -6,6 +7,11 @@ pub struct HttpRequest{
     pub version: String,
     pub headers: Vec<(String, String)>,
     pub body: String,
+}
+
+pub enum ParsedRequest {
+    Api(ApiRequest),
+    HTTP(HttpRequest),
 }
 
 pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {

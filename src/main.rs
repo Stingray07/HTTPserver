@@ -6,9 +6,10 @@ use std::path::Path;
 mod http_utils;
 mod routes;
 
+use http_utils::status::ParseError;
 use http_utils::api;
 use http_utils::response;
-use http_utils::request::{self, parse_web_request};
+use http_utils::request::{self, ParsedRequest};
 use routes::web;
 
 fn main() {
@@ -28,31 +29,29 @@ fn main() {
         }
 
         let is_api = http_utils::request::is_api_request(&buffer);
-        
-        if is_api {
-            http_utils::api::parse_api_request()
-        } else {
-            parse_web_request(buffer)
-        }
 
-        let parsed_request = match http_utils::request::parse_web_request(&buffer) {
-            Ok(req) => req,
+        let parsed_request: ParsedRequest;
+        let request_path: &str;
+        let request_method: &'static str;
+        
+
+        let (request_path, request_method) = match some_helper(is_api, &buffer) {
+            Ok(ParsedRequest::Api(ref api_req)) => (api_req.path.as_str(), api_req.method.as_str()),
+            Ok(ParsedRequest::HTTP(ref http_req)) => (http_req.path.as_str(), http_req.method.as_str()),
             Err(_) => {
                 eprintln!("Parse Failed");
                 let _ = send_response(&mut stream, web::handle_400());
                 continue;
-            }   
+            }
         };
-
+        
 
 
         println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
-        println!("Request Body: {}", parsed_request.body.as_str());
         println!("================================");
 
-        let request_path = parsed_request.path.as_str();
-        let request_method = parsed_request.method.as_str();
-
+        //MATCH FOR BOTH API AND HTTP
+        
         // match for routing
         let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
             (_, Some("400")) => web::handle_400(),
@@ -101,5 +100,20 @@ fn log_response(response: &[u8]) {
         println!("[Malformed HTTP response]");
     }
     println!("================================");
+}
+
+fn some_helper(is_api: bool, buffer: &[u8]) -> (Result<ParsedRequest, ParseError>) {
+
+    if is_api {
+        match api::parse_api_request(buffer) {
+            Ok(req) => Ok(ParsedRequest::Api(req)),
+            Err(e) => Err(e),
+        }
+    } else {
+        match request::parse_web_request(buffer) {
+            Ok(req) => Ok(ParsedRequest::HTTP(req)),
+            Err(e) => Err(e),
+        }
+    }
 }
 

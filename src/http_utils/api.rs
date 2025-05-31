@@ -12,18 +12,22 @@ pub struct ApiRequest {
 
 pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
     let request_str = std::str::from_utf8(buffer).map_err(|_| ParseError::MalformedRequest)?;
+    println!("1");
     
     // Split into lines
     let lines: Vec<&str> = request_str.split('\n').collect();
+    println!("2");
     
     // Parse request line (first line)
     let request_line = lines.first().ok_or(ParseError::MalformedRequest)?;
     let parts: Vec<&str> = request_line.split_whitespace().collect();
+    println!("3");
     
     if parts.len() != 3 {
+        println!("4");
         return Err(ParseError::MalformedRequest);
     }
-    
+    println!("5");
     let method = parts[0].to_string();
     let path = parts[1].to_string();
     
@@ -45,13 +49,23 @@ pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
     
     // Get body
     let body_str = if let Some(start) = body_start {
+        println!("lines[start..]: {:?}", &lines[start..]);
         lines[start..].join("\n")
     } else {
         String::new()
     };
+    let body_str = body_str.replace("\r\n", "");
     
-    let body: JsonValue = if !body_str.trim().is_empty() {
-        serde_json::from_str(&body_str).map_err(|_| ParseError::MalformedRequest)?
+    println!("BODY: >{}<", body_str);
+    
+    let body: JsonValue = if !body_str.is_empty() {
+        match serde_json::from_str(&body_str) {
+            Ok(val) => val,
+            Err(e) => {
+                println!("serde_json error: {}", e);
+                return Err(ParseError::MalformedRequest);
+            }
+        }
     } else {
         JsonValue::Null
     };

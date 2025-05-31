@@ -28,27 +28,29 @@ fn main() {
             continue;
         }
 
+        println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+        println!("================================");
+
         let is_api = http_utils::request::is_api_request(&buffer);
 
         let parsed_request: ParsedRequest;
         let request_path: &str;
         let request_method: &'static str;
         
-
-        let (request_path, request_method) = match some_helper(is_api, &buffer) {
-            Ok(ParsedRequest::Api(ref api_req)) => (api_req.path.as_str(), api_req.method.as_str()),
-            Ok(ParsedRequest::HTTP(ref http_req)) => (http_req.path.as_str(), http_req.method.as_str()),
-            Err(_) => {
-                eprintln!("Parse Failed");
+        let parsed_request = match some_helper(is_api, &buffer) {
+            Ok(req) => req,
+            Err(e) => {
+                eprintln!("Parse Failed: {:?}", e);
                 let _ = send_response(&mut stream, web::handle_400());
                 continue;
             }
         };
+
+        let (request_path, request_method) = match &parsed_request {
+            ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str()),
+            ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str()),
+        };
         
-
-
-        println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
-        println!("================================");
 
         //MATCH FOR BOTH API AND HTTP
         
@@ -58,7 +60,7 @@ fn main() {
             ("GET", Some("/")) => web::handle_home(),
             ("GET", Some("/about")) => web::handle_about(),
             ("GET",  Some("/submit")) => web::handle_submit_get(),
-            ("POST", Some("/submit")) => web::handle_submit_post(&parsed_request),
+            ("POST", Some("/submit")) => web::handle_submit_post(),
             ("GET", Some(request_path)) => response::serve_file(request_path),
 
             (_, None) => web::handle_403(),
@@ -102,7 +104,7 @@ fn log_response(response: &[u8]) {
     println!("================================");
 }
 
-fn some_helper(is_api: bool, buffer: &[u8]) -> (Result<ParsedRequest, ParseError>) {
+fn some_helper(is_api: bool, buffer: &[u8]) -> Result<ParsedRequest, ParseError> {
 
     if is_api {
         match api::parse_api_request(buffer) {

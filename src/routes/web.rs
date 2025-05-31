@@ -17,7 +17,7 @@ pub fn handle_submit_get() -> Vec<u8> {
     html_response(Status::Ok, "SUBMIT GET", "SUBMIT GET")
 }
 
-pub fn handle_submit_post(request: &HttpRequest) -> Vec<u8> {
+pub fn handle_submit_post() -> Vec<u8> {
     html_response(Status::Ok, "SUBMIT POST", "SUBMIT POST")
 }
 

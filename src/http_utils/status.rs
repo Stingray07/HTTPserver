@@ -11,6 +11,7 @@ pub enum Status {
     ServiceUnavailable = 503,
 }
 
+#[derive(Debug)]
 pub enum ParseError {
     MalformedRequest
 }

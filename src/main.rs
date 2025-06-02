@@ -6,6 +6,7 @@ use std::path::Path;
 mod http_utils;
 mod routes;
 
+use http_utils::parser;
 use http_utils::status::ParseError;
 use http_utils::api;
 use http_utils::response;
@@ -32,10 +33,6 @@ fn main() {
         println!("================================");
 
         let is_api = http_utils::request::is_api_request(&buffer);
-
-        let parsed_request: ParsedRequest;
-        let request_path: &str;
-        let request_method: &'static str;
         
         let parsed_request = match some_helper(is_api, &buffer) {
             Ok(req) => req,
@@ -107,12 +104,12 @@ fn log_response(response: &[u8]) {
 fn some_helper(is_api: bool, buffer: &[u8]) -> Result<ParsedRequest, ParseError> {
 
     if is_api {
-        match api::parse_api_request(buffer) {
+        match parser::parse_api_request(buffer) {
             Ok(req) => Ok(ParsedRequest::Api(req)),
             Err(e) => Err(e),
         }
     } else {
-        match request::parse_web_request(buffer) {
+        match parser::parse_web_request(buffer) {
             Ok(req) => Ok(ParsedRequest::HTTP(req)),
             Err(e) => Err(e),
         }

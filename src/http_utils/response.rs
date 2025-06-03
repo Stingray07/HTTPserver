@@ -1,6 +1,8 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 use std::path::Path;
 use crate::http_utils::{response, status::Status};
+use serde_json::Value as JsonValue;
+use super::api::ApiResponse;
 
 
 pub fn serve_file(file_path: &str) -> Vec<u8> {
@@ -44,6 +46,21 @@ pub fn build_response(status: Status, content_type: &str, body: &[u8]) -> Vec<u8
     response.extend_from_slice(format!("\r\n").as_bytes());
     response.extend(body);
     response
+}
+
+pub fn api_response(status: Status, body: &[u8]) -> Vec<u8> {
+    let body: JsonValue = serde_json::from_slice(body).unwrap();
+    let mut headers = HashMap::new();
+    headers.insert("Content-Type".to_string(), "application/json".to_string());
+    headers.insert("Content-Length".to_string(), body.to_string().len().to_string());
+
+    let response_body = ApiResponse {
+        status: String::from_utf8_lossy(status.line()).to_string(),
+        headers,
+        body: body,
+    };
+    let res = serde_json::to_vec(&response_body).unwrap();
+    build_response(status, "application/json", &res)
 }
 
 pub fn html_response(status: Status, title: &str, message: &str) -> Vec<u8> {

@@ -1,4 +1,4 @@
-use crate::http_utils::{request::HttpRequest, response::html_response, status::Status};
+use crate::http_utils::{response::html_response, status::Status};
 
 
 pub fn handle_about() -> Vec<u8> {

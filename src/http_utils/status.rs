@@ -1,3 +1,7 @@
+use serde::Serialize;
+
+#[derive(Clone)]
+#[derive(Serialize)]
 pub enum Status {
     Ok = 200,
     Created = 201,

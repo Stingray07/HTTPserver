@@ -1,4 +1,4 @@
-use crate::api::ApiRequest;
+use crate::api_utils::ApiRequest;
 use crate::http_utils::status::ParseError;
 use std::collections::HashMap;
 use serde_json::Value as JsonValue;

@@ -1,17 +1,18 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write};
-use std::path::Path;
 
 
 mod http_utils;
 mod routes;
+mod api;
 
 use http_utils::parser;
 use http_utils::status::ParseError;
-use http_utils::api;
+use http_utils::api as api_utils;
 use http_utils::response;
 use http_utils::request::{self, ParsedRequest};
 use routes::web;
+use api::v1;
 
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
@@ -50,10 +51,9 @@ fn main() {
         
 
         //MATCH FOR BOTH API AND HTTP
-        
-        // match for routing
         let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
             (_, Some("400")) => web::handle_400(),
+            ("GET", Some("/api/v1/users")) => v1::users::handle_get_user(),
             ("GET", Some("/")) => web::handle_home(),
             ("GET", Some("/about")) => web::handle_about(),
             ("GET",  Some("/submit")) => web::handle_submit_get(),
@@ -61,11 +61,9 @@ fn main() {
             ("GET", Some(request_path)) => response::serve_file(request_path),
 
             (_, None) => web::handle_403(),
-            
             _ => web::handle_404(),
         };
 
-        // Modify later
         let _ = send_response(&mut stream, response);
     }
 }

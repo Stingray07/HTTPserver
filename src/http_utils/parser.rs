@@ -1,4 +1,5 @@
 use crate::api_utils::ApiRequest;
+use crate::http_utils::request::ParsedBody;
 use crate::http_utils::status::ParseError;
 use std::collections::HashMap;
 use serde_json::Value as JsonValue;
@@ -26,9 +27,9 @@ pub fn parse_headers(lines: &[&str]) -> Result<HashMap<String, String>, ParseErr
     Ok(headers)
 }
 
-pub fn parse_body(lines: &[&str]) -> Result<String, ParseError> {
+pub fn parse_body(lines: &[&str], content_type: &str) -> Result<ParsedBody, ParseError> {
     let body = lines.join("\r\n");
-    Ok(body)
+    deserialize_body(body.as_bytes(), content_type)
 }
 
 pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
@@ -45,15 +46,14 @@ pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
     let headers = parse_headers(&lines[1..])?;
     let body_start = None;
     
-    // Get body
-    let body_str = parse_body(&lines[body_start.unwrap_or(1)..])?;
+    let body = parse_body(&lines[body_start.unwrap_or(1)..], headers.get("Content-Type").map_or("text/plain", |v| v))?;
     
     Ok(HttpRequest {
         method,
         path,
         version,
         headers,
-        body: body_str,
+        body,
     })
 }
 
@@ -104,4 +104,26 @@ pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
         headers,
         body,
     })
+}
+
+
+pub fn deserialize_body(body: &[u8], content_type: &str) -> Result<ParsedBody, ParseError> {
+    match content_type {
+        "application/json" => {
+            serde_json::from_slice(body)
+                .map(ParsedBody::Json)
+                .map_err(|_| ParseError::MalformedRequest)
+        }
+        "text/plain" | "application/x-www-form-urlencoded" => {
+            String::from_utf8(body.to_vec())
+                .map(ParsedBody::Text)
+                .map_err(|_| ParseError::MalformedRequest)
+        }
+        "application/octet-stream" => Ok(ParsedBody::Binary(body.to_vec())),
+        _ => {
+            String::from_utf8(body.to_vec())
+                .map(ParsedBody::Text)
+                .map_err(|_| ParseError::MalformedRequest)
+        }
+    }
 }

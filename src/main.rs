@@ -14,6 +14,8 @@ use http_utils::request::{self, ParsedRequest};
 use routes::web;
 use api::v1;
 
+
+//json submit postman error
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
     println!("Server listening on http://127.0.0.1:7878");
@@ -21,10 +23,8 @@ fn main() {
     for stream in listener.incoming(){
         let mut stream = stream.unwrap();
 
-        // this is where the request was put
         let mut buffer = [0; 1024];
 
-        // read the request into the buffer
         if let Err(e) = stream.read(&mut buffer) {
             eprintln!("Failed to read from stream: {}", e);
             continue;
@@ -35,7 +35,7 @@ fn main() {
 
         let is_api = http_utils::request::is_api_request(&buffer);
         
-        let parsed_request = match some_helper(is_api, &buffer) {
+        let parsed_request = match parse_helper(is_api, &buffer) {
             Ok(req) => req,
             Err(e) => {
                 eprintln!("Parse Failed: {:?}", e);
@@ -48,6 +48,8 @@ fn main() {
             ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str()),
             ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str()),
         };
+
+
         
 
         //MATCH FOR BOTH API AND HTTP
@@ -57,7 +59,7 @@ fn main() {
             ("GET", Some("/")) => web::handle_home(),
             ("GET", Some("/about")) => web::handle_about(),
             ("GET",  Some("/submit")) => web::handle_submit_get(),
-            ("POST", Some("/submit")) => web::handle_submit_post(),
+            ("POST", Some("/submit")) => web::handle_submit_post("adga".into()),
             ("GET", Some(request_path)) => response::serve_file(request_path),
 
             (_, None) => web::handle_403(),
@@ -99,7 +101,7 @@ fn log_response(response: &[u8]) {
     println!("================================");
 }
 
-fn some_helper(is_api: bool, buffer: &[u8]) -> Result<ParsedRequest, ParseError> {
+fn parse_helper(is_api: bool, buffer: &[u8]) -> Result<ParsedRequest, ParseError> {
 
     if is_api {
         match parser::parse_api_request(buffer) {

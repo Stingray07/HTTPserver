@@ -1,4 +1,4 @@
-use crate::http_utils::{response::html_response, status::Status};
+use crate::http_utils::{request::{HttpRequest, ParsedRequest}, response::html_response, status::Status};
 
 
 pub fn handle_about() -> Vec<u8> {
@@ -17,8 +17,8 @@ pub fn handle_submit_get() -> Vec<u8> {
     html_response(Status::Ok, "SUBMIT GET", "SUBMIT GET")
 }
 
-pub fn handle_submit_post() -> Vec<u8> {
-    html_response(Status::Ok, "SUBMIT POST", "SUBMIT POST")
+pub fn handle_submit_post(body: Vec<u8>) -> Vec<u8> {
+    html_response(Status::Ok, "SUBMIT POST", "HAHAH")
 }
 
 pub fn handle_500() -> Vec<u8> {

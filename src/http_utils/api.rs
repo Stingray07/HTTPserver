@@ -7,12 +7,11 @@ pub struct ApiRequest {
     pub method: String,
     pub version: String,
     pub headers: HashMap<String, String>,
-    pub body: JsonValue,  // Using serde_json::Value for parsed JSON
+    pub body: JsonValue,  
 }
 
 #[derive(Serialize)]
 pub struct ApiResponse {
     pub status: String,
-    pub headers: HashMap<String, String>,
     pub body: JsonValue,
 }

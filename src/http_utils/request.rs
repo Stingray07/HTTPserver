@@ -1,3 +1,5 @@
+use serde_json::Value;
+
 use crate::http_utils::api::ApiRequest;
 use std::collections::HashMap;
 
@@ -6,7 +8,7 @@ pub struct HttpRequest{
     pub path: String, 
     pub version: String,
     pub headers: HashMap<String, String>,
-    pub body: String,
+    pub body: ParsedBody,
 }
 
 pub enum ParsedRequest {
@@ -14,6 +16,11 @@ pub enum ParsedRequest {
     HTTP(HttpRequest),
 }
 
+pub enum ParsedBody{
+    Json(Value),
+    Text(String),
+    Binary(Vec<u8>)
+}
 
 pub fn sanitize_path(path: &str) -> Option<&str> {
     if path.contains("..") || path.contains('\0') || path.contains("/.") {

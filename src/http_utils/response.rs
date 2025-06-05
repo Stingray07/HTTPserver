@@ -50,13 +50,9 @@ pub fn build_response(status: Status, content_type: &str, body: &[u8]) -> Vec<u8
 
 pub fn api_response(status: Status, body: &[u8]) -> Vec<u8> {
     let body: JsonValue = serde_json::from_slice(body).unwrap();
-    let mut headers = HashMap::new();
-    headers.insert("Content-Type".to_string(), "application/json".to_string());
-    headers.insert("Content-Length".to_string(), body.to_string().len().to_string());
 
     let response_body = ApiResponse {
         status: String::from_utf8_lossy(status.line()).to_string(),
-        headers,
         body: body,
     };
     let res = serde_json::to_vec(&response_body).unwrap();

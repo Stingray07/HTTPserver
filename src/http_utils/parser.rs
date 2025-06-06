@@ -27,9 +27,17 @@ pub fn parse_headers(lines: &[&str]) -> Result<HashMap<String, String>, ParseErr
     Ok(headers)
 }
 
-pub fn parse_body(lines: &[&str], content_type: &str) -> Result<ParsedBody, ParseError> {
-    let body = lines.join("\r\n");
-    deserialize_body(body.as_bytes(), content_type)
+
+pub fn trim_by_content_length(headers: HashMap<String, String>, buffer: &[u8], body_start: Option<usize>, method: &str) -> Result<Vec<u8>, ParseError> {
+    if headers.get("Content-Length").is_none() && method != "POST" {
+        return Ok(Vec::new());
+    }
+
+    let content_length = headers.get("Content-Length").ok_or(ParseError::MalformedRequest)?;
+    let content_length = content_length.parse::<usize>().map_err(|_| ParseError::MalformedRequest)?;
+    let start = body_start.unwrap_or(0);
+    let end = start + content_length;
+    Ok(buffer[start..end].to_vec())
 }
 
 pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
@@ -44,10 +52,15 @@ pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
     
     // Parse headers
     let headers = parse_headers(&lines[1..])?;
-    let body_start = None;
-    
-    let body = parse_body(&lines[body_start.unwrap_or(1)..], headers.get("Content-Type").map_or("text/plain", |v| v))?;
-    
+
+    let header_end = buffer.windows(4).position(|window| window == b"\r\n\r\n");
+    let body_start = header_end.map(|pos| pos + 4);
+
+    println!("HAHA0");
+    let body = trim_by_content_length(headers.clone(), buffer, body_start, method.as_str())?;
+    println!("HAHAH");
+    let body = deserialize_body(&body, headers.get("Content-Type").map_or("text/plain", |v| v))?;
+    println!("HAHAH2");
     Ok(HttpRequest {
         method,
         path,
@@ -110,9 +123,12 @@ pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
 pub fn deserialize_body(body: &[u8], content_type: &str) -> Result<ParsedBody, ParseError> {
     match content_type {
         "application/json" => {
-            serde_json::from_slice(body)
+            println!("JSON: {:?}", body);
+            let res = serde_json::from_slice(body)
                 .map(ParsedBody::Json)
-                .map_err(|_| ParseError::MalformedRequest)
+                .map_err(|_| ParseError::MalformedRequest);
+            println!("Result: {:?}", res);
+            res
         }
         "text/plain" | "application/x-www-form-urlencoded" => {
             String::from_utf8(body.to_vec())

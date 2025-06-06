@@ -16,6 +16,7 @@ pub enum ParsedRequest {
     HTTP(HttpRequest),
 }
 
+#[derive(Debug)]
 pub enum ParsedBody{
     Json(Value),
     Text(String),

@@ -1,4 +1,6 @@
-use crate::http_utils::{request::{HttpRequest, ParsedRequest}, response::html_response, status::Status};
+use serde_json::Value;
+
+use crate::http_utils::{request::{HttpRequest, ParsedRequest, UniversalBody}, response::html_response, status::Status};
 
 
 pub fn handle_about() -> Vec<u8> {
@@ -17,8 +19,34 @@ pub fn handle_submit_get() -> Vec<u8> {
     html_response(Status::Ok, "SUBMIT GET", "SUBMIT GET")
 }
 
-pub fn handle_submit_post(body: Vec<u8>) -> Vec<u8> {
-    html_response(Status::Ok, "SUBMIT POST", "HAHAH")
+pub fn submit_post_handler(body: UniversalBody) -> Vec<u8> {
+    match body {
+        UniversalBody::Json(json) => {
+            handle_submit_post_json(json)
+        }
+        UniversalBody::Text(text) => {
+            handle_submit_post_text(text)
+        }
+        UniversalBody::Binary(binary) => {
+            handle_submit_post_binary(binary)
+        }
+        _ => {
+            html_response(Status::BadRequest, "UNKNOWN BODY TYPE", "UNKNOWN BODY TYPE")
+        }
+    }
+}
+
+pub fn handle_submit_post_json(json: Value) -> Vec<u8> {
+    let message = json.to_string();
+    html_response(Status::Ok, "SUBMIT POST", message.as_str())
+}
+
+pub fn handle_submit_post_text(body: String) -> Vec<u8> {
+    html_response(Status::Ok, "SUBMIT POST", body.as_str())
+}
+
+pub fn handle_submit_post_binary(body: Vec<u8>) -> Vec<u8> {
+    html_response(Status::Ok, "SUBMIT POST", "BINARY")
 }
 
 pub fn handle_500() -> Vec<u8> {

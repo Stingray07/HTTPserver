@@ -1,5 +1,5 @@
 use crate::api_utils::ApiRequest;
-use crate::http_utils::request::ParsedBody;
+use crate::http_utils::request::UniversalBody;
 use crate::http_utils::status::ParseError;
 use std::collections::HashMap;
 use serde_json::Value as JsonValue;
@@ -56,11 +56,8 @@ pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
     let header_end = buffer.windows(4).position(|window| window == b"\r\n\r\n");
     let body_start = header_end.map(|pos| pos + 4);
 
-    println!("HAHA0");
     let body = trim_by_content_length(headers.clone(), buffer, body_start, method.as_str())?;
-    println!("HAHAH");
     let body = deserialize_body(&body, headers.get("Content-Type").map_or("text/plain", |v| v))?;
-    println!("HAHAH2");
     Ok(HttpRequest {
         method,
         path,
@@ -92,23 +89,23 @@ pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
     };
     let body_str = body_str.replace("\r\n", "");
     
-    let body: JsonValue = if !body_str.is_empty() {
+    let body: UniversalBody = if !body_str.is_empty() {
         match serde_json::from_str(&body_str) {
-            Ok(val) => val,
+            Ok(val) => UniversalBody::Json(val),
             Err(e) => {
                 println!("serde_json error: {}", e);
                 return Err(ParseError::MalformedRequest);
             }
         }
     } else {
-        JsonValue::Null
+        UniversalBody::Json(JsonValue::Null)
     };
 
-    println!("Path: >{:?}<", path);
-    println!("Method: >{:?}<", method);
-    println!("Version: >{:?}<", version);
-    println!("Headers: >{:?}<", headers);
-    println!("Body: >{:?}<", body);
+    // println!("Path: >{:?}<", path);
+    // println!("Method: >{:?}<", method);
+    // println!("Version: >{:?}<", version);
+    // println!("Headers: >{:?}<", headers);
+    // println!("Body: >{:?}<", body);
     
     Ok(ApiRequest {
         path,
@@ -120,25 +117,24 @@ pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
 }
 
 
-pub fn deserialize_body(body: &[u8], content_type: &str) -> Result<ParsedBody, ParseError> {
+pub fn deserialize_body(body: &[u8], content_type: &str) -> Result<UniversalBody, ParseError> {
     match content_type {
         "application/json" => {
             println!("JSON: {:?}", body);
             let res = serde_json::from_slice(body)
-                .map(ParsedBody::Json)
+                .map(UniversalBody::Json)
                 .map_err(|_| ParseError::MalformedRequest);
-            println!("Result: {:?}", res);
             res
         }
         "text/plain" | "application/x-www-form-urlencoded" => {
             String::from_utf8(body.to_vec())
-                .map(ParsedBody::Text)
+                .map(UniversalBody::Text)
                 .map_err(|_| ParseError::MalformedRequest)
         }
-        "application/octet-stream" => Ok(ParsedBody::Binary(body.to_vec())),
+        "application/octet-stream" => Ok(UniversalBody::Binary(body.to_vec())),
         _ => {
             String::from_utf8(body.to_vec())
-                .map(ParsedBody::Text)
+                .map(UniversalBody::Text)
                 .map_err(|_| ParseError::MalformedRequest)
         }
     }

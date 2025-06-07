@@ -8,7 +8,7 @@ pub struct HttpRequest{
     pub path: String, 
     pub version: String,
     pub headers: HashMap<String, String>,
-    pub body: ParsedBody,
+    pub body: UniversalBody,
 }
 
 pub enum ParsedRequest {
@@ -16,12 +16,13 @@ pub enum ParsedRequest {
     HTTP(HttpRequest),
 }
 
-#[derive(Debug)]
-pub enum ParsedBody{
+#[derive(Clone)]
+pub enum UniversalBody {
     Json(Value),
-    Text(String),
-    Binary(Vec<u8>)
+    Binary(Vec<u8>),
+    Text(String)
 }
+
 
 pub fn sanitize_path(path: &str) -> Option<&str> {
     if path.contains("..") || path.contains('\0') || path.contains("/.") {

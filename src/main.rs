@@ -15,7 +15,6 @@ use routes::web;
 use api::v1;
 
 
-//json submit postman error
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
     println!("Server listening on http://127.0.0.1:7878");
@@ -44,13 +43,10 @@ fn main() {
             }
         };
 
-        let (request_path, request_method) = match &parsed_request {
-            ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str()),
-            ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str()),
+        let (request_path, request_method, body) = match &parsed_request {
+            ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str(), api_req.body.clone()),
+            ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str(), http_req.body.clone()),
         };
-
-
-        
 
         //MATCH FOR BOTH API AND HTTP
         let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
@@ -59,7 +55,9 @@ fn main() {
             ("GET", Some("/")) => web::handle_home(),
             ("GET", Some("/about")) => web::handle_about(),
             ("GET",  Some("/submit")) => web::handle_submit_get(),
-            ("POST", Some("/submit")) => web::handle_submit_post("adga".into()),
+            ("POST", Some("/submit/json")) => web::submit_post_handler(body),
+            ("POST", Some("/submit/text")) => web::submit_post_handler(body),
+            ("POST", Some("/submit/binary")) => web::submit_post_handler(body),
             ("GET", Some(request_path)) => response::serve_file(request_path),
 
             (_, None) => web::handle_403(),

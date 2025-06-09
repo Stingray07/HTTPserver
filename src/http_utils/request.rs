@@ -3,6 +3,7 @@ use serde_json::Value;
 use crate::http_utils::api::ApiRequest;
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct HttpRequest{
     pub method: String,
     pub path: String, 
@@ -11,12 +12,13 @@ pub struct HttpRequest{
     pub body: UniversalBody,
 }
 
+#[derive(Debug)]
 pub enum ParsedRequest {
     Api(ApiRequest),
     HTTP(HttpRequest),
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum UniversalBody {
     Json(Value),
     Binary(Vec<u8>),

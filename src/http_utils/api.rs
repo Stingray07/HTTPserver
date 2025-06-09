@@ -4,6 +4,7 @@ use serde::Serialize;
 
 use crate::http_utils::request::UniversalBody;  
 
+#[derive(Debug)]
 pub struct ApiRequest {
     pub path: String,
     pub method: String,

@@ -3,6 +3,24 @@ use crate::http_utils::response::api_response;
 use crate::http_utils::request::UniversalBody;
 
 pub fn handle_post_post(body: UniversalBody) -> Vec<u8> {
-    
-    api_response(Status::Ok, b"{\"name\": \"Stingray Post Post\"}")
+    match body {
+        UniversalBody::Json(value) => {
+            println!("JSON: {:?}", value);
+            let name = value.get("name").and_then(|v| v.as_str());
+            match name {
+                Some(name) => {
+                    let res = format!("{{\"namessssss\": \"{}\"}}", name);
+                    api_response(Status::Ok, res.as_bytes())
+                },
+                None => {
+                    println!("None");
+                    api_response(Status::BadRequest, b"{\"name\": \"Stingray Post Post\"}")
+                }
+            }
+        },
+        _ => {
+            println!("_");
+            api_response(Status::BadRequest, b"{\"name\": \"Stingray Post Post\"}")
+        }
+    }
 }

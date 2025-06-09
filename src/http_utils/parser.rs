@@ -67,6 +67,8 @@ pub fn parse_web_request(buffer: &[u8]) -> Result<HttpRequest, ParseError> {
     })
 }
 
+//debating if I should merge parse_web_request and parse_api_request into one function
+
 pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
     let request_str = std::str::from_utf8(buffer).map_err(|_| ParseError::MalformedRequest)?;
     
@@ -79,37 +81,22 @@ pub fn parse_api_request(buffer: &[u8]) -> Result<ApiRequest, ParseError> {
     
     // Parse headers
     let headers = parse_headers(&lines[1..])?;
-    let body_start = None;
-    
-    //Get body
-    let body_str = if let Some(start) = body_start {
-        lines[start..].join("\n")
-    } else {
-        String::new()
-    };
-    let body_str = body_str.replace("\r\n", "");
-    
-    let body: UniversalBody = if !body_str.is_empty() {
-        match serde_json::from_str(&body_str) {
-            Ok(val) => UniversalBody::Json(val),
-            Err(e) => {
-                println!("serde_json error: {}", e);
-                return Err(ParseError::MalformedRequest);
-            }
-        }
-    } else {
-        UniversalBody::Json(JsonValue::Null)
-    };
 
-    // println!("Path: >{:?}<", path);
-    // println!("Method: >{:?}<", method);
-    // println!("Version: >{:?}<", version);
-    // println!("Headers: >{:?}<", headers);
-    // println!("Body: >{:?}<", body);
-    
+    let header_end = buffer.windows(4).position(|window| window == b"\r\n\r\n");
+    let body_start = header_end.map(|pos| pos + 4);
+
+    let body = trim_by_content_length(headers.clone(), buffer, body_start, method.as_str())?;
+    let body = deserialize_body(&body, headers.get("Content-Type").map_or("text/plain", |v| v))?;
+
+    println!("Path: >{:?}<", path);
+    println!("Method: >{:?}<", method);
+    println!("Version: >{:?}<", version);
+    println!("Headers: >{:?}<", headers);
+    println!("Body: >{:?}<", body);
+
     Ok(ApiRequest {
-        path,
         method,
+        path,
         version,
         headers,
         body,

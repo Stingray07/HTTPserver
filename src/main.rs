@@ -33,6 +33,7 @@ fn main() {
         println!("================================");
 
         let is_api = http_utils::request::is_api_request(&buffer);
+        println!("Is API: {}", is_api);
         
         let parsed_request = match parse_helper(is_api, &buffer) {
             Ok(req) => req,
@@ -43,15 +44,20 @@ fn main() {
             }
         };
 
+        println!("Parsed Request: {:?}", parsed_request);
+
         let (request_path, request_method, body) = match &parsed_request {
             ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str(), api_req.body.clone()),
             ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str(), http_req.body.clone()),
         };
 
+        println!("Body: {:?}", body);
+
         //MATCH FOR BOTH API AND HTTP
         let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
             (_, Some("400")) => web::handle_400(),
             ("GET", Some("/api/v1/users")) => v1::users::handle_get_user(),
+            ("POST", Some("/api/v1/posts")) => v1::posts::handle_post_post(body),
             ("GET", Some("/")) => web::handle_home(),
             ("GET", Some("/about")) => web::handle_about(),
             ("GET",  Some("/submit")) => web::handle_submit_get(),

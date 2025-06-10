@@ -21,21 +21,43 @@ fn main() {
 
     for stream in listener.incoming(){
         let mut stream = stream.unwrap();
+        let mut pre_buffer = [0; 64];
+        let mut dynamo_buffer = Vec::new();
 
-        let mut buffer = [0; 1024];
-
-        if let Err(e) = stream.read(&mut buffer) {
-            eprintln!("Failed to read from stream: {}", e);
-            continue;
+        loop {
+            if let Err(e) = stream.read(&mut pre_buffer) {
+                eprintln!("Failed to read from stream: {}", e);
+                continue;
+            }
+            dynamo_buffer.extend_from_slice(&pre_buffer);
+            let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
+            if header_end.is_some() {
+                break;
+            }
         }
 
-        println!("Request: {}", String::from_utf8_lossy(&buffer[..]));
+        let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
+        let content_length = parser::get_content_length(&dynamo_buffer);
+        //returns MalformedRequest 
+        let body_start = header_end.unwrap() + 4;
+        let already_read_body =  &dynamo_buffer[body_start..];
+
+        let mut body_buffer = vec![0; content_length.unwrap() - already_read_body.len()];
+        let _ = stream.read_exact(&mut body_buffer);
+
+        let mut full_body = already_read_body.to_vec();
+        full_body.extend_from_slice(&body_buffer);
+    
+        let mut full_request = dynamo_buffer[..body_start].to_vec();
+        full_request.extend_from_slice(&full_body);
+
+        println!("Request: {}", String::from_utf8_lossy(&full_request[..]));
         println!("================================");
 
-        let is_api = http_utils::request::is_api_request(&buffer);
+        let is_api = http_utils::request::is_api_request(&full_request);
         println!("Is API: {}", is_api);
         
-        let parsed_request = match parse_helper(is_api, &buffer) {
+        let parsed_request = match parse_request_by_type(is_api, &full_request) {
             Ok(req) => req,
             Err(e) => {
                 eprintln!("Parse Failed: {:?}", e);
@@ -105,7 +127,7 @@ fn log_response(response: &[u8]) {
     println!("================================");
 }
 
-fn parse_helper(is_api: bool, buffer: &[u8]) -> Result<ParsedRequest, ParseError> {
+fn parse_request_by_type(is_api: bool, buffer: &[u8]) -> Result<ParsedRequest, ParseError> {
 
     if is_api {
         match parser::parse_api_request(buffer) {

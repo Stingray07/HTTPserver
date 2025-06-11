@@ -42,9 +42,12 @@ pub fn trim_by_content_length(headers: HashMap<String, String>, buffer: &[u8], b
 
 pub fn get_content_length(buffer: &[u8]) -> Result<usize, ParseError> {
     let request_str = std::str::from_utf8(buffer).map_err(|_| ParseError::MalformedRequest)?;
+    println!("Request String: {}", request_str);
     let lines: Vec<&str> = request_str.split('\n').collect();
     let headers = parse_headers(&lines[1..])?;
-    Ok(headers.get("Content-Length").ok_or(ParseError::MalformedRequest)?.parse::<usize>().map_err(|_| ParseError::MalformedRequest)?)
+    let binding = "0".to_string();
+    let content_length = headers.get("Content-Length").unwrap_or(&binding);
+    Ok(content_length.parse::<usize>().map_err(|_| ParseError::MalformedRequest)?)
 }
 
 fn parse_request(buffer: &[u8]) -> Result<(String, String, String, HashMap<String, String>, UniversalBody), ParseError> {

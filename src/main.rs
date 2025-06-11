@@ -38,15 +38,40 @@ fn main() {
 
         let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
         let content_length = parser::get_content_length(&dynamo_buffer);
-        //returns MalformedRequest 
         let body_start = header_end.unwrap() + 4;
         let already_read_body =  &dynamo_buffer[body_start..];
-
-        let mut body_buffer = vec![0; content_length.unwrap() - already_read_body.len()];
-        let _ = stream.read_exact(&mut body_buffer);
-
         let mut full_body = already_read_body.to_vec();
-        full_body.extend_from_slice(&body_buffer);
+
+        println!("==Full Buffer: {}==", String::from_utf8_lossy(&dynamo_buffer));
+        println!("==Headers: {}==", String::from_utf8_lossy(&dynamo_buffer[..body_start]));
+        println!("==Body candidate: {}==", String::from_utf8_lossy(&dynamo_buffer[body_start..]));
+
+        println!("Content Length: {:?}", content_length);
+        println!("Already Read Body: {:?}", already_read_body);
+        println!("Already Read Body Length: {:?}", already_read_body.len());
+        println!("Already Read Body (as text): {}", String::from_utf8_lossy(already_read_body));
+
+        //content length request body problem
+        
+
+        match content_length {
+            Ok(content_length) => {
+                if content_length == 0 {
+                    full_body = Vec::new();
+                } else {
+                    let mut body_buffer = vec![0; content_length - already_read_body.len()];
+                    let _ = stream.read_exact(&mut body_buffer);
+
+                    full_body.extend_from_slice(&body_buffer);
+                }
+            }
+            Err(_) => {
+                eprintln!("Failed to get content length");
+                let _ = send_response(&mut stream, web::handle_400());
+                continue;
+            }
+        }
+        println!("Content Length: {:?}", content_length);
     
         let mut full_request = dynamo_buffer[..body_start].to_vec();
         full_request.extend_from_slice(&full_body);

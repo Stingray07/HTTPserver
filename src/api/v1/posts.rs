@@ -14,13 +14,13 @@ pub fn handle_post_post(body: UniversalBody) -> Vec<u8> {
                 },
                 None => {
                     println!("None");
-                    api_response(Status::BadRequest, b"{\"name\": \"Stingray Post Post\"}")
+                    api_response(Status::BadRequest, b"{\"error\": \"BAD REQUEST\"}")
                 }
             }
         },
         _ => {
             println!("_");
-            api_response(Status::BadRequest, b"{\"name\": \"Stingray Post Post\"}")
+            api_response(Status::BadRequest, b"{\"error\": \"BAD REQUEST\"}")
         }
     }
 }

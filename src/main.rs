@@ -21,18 +21,25 @@ fn main() {
 
     for stream in listener.incoming(){
         let mut stream = stream.unwrap();
-        let mut pre_buffer = [0; 64];
         let mut dynamo_buffer = Vec::new();
+        let mut pre_buffer = [0; 1024]; 
 
         loop {
-            if let Err(e) = stream.read(&mut pre_buffer) {
-                eprintln!("Failed to read from stream: {}", e);
-                continue;
-            }
-            dynamo_buffer.extend_from_slice(&pre_buffer);
-            let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
-            if header_end.is_some() {
-                break;
+            match stream.read(&mut pre_buffer) {
+                Ok(0) => {
+                    eprintln!("Connection closed before complete headers");
+                    break;
+                }
+                Ok(n) => {
+                    dynamo_buffer.extend_from_slice(&pre_buffer[..n]); // Only use bytes read
+                    if dynamo_buffer.windows(4).any(|window| window == b"\r\n\r\n") {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read from stream: {}", e);
+                    break; 
+                }
             }
         }
 
@@ -41,18 +48,6 @@ fn main() {
         let body_start = header_end.unwrap() + 4;
         let already_read_body =  &dynamo_buffer[body_start..];
         let mut full_body = already_read_body.to_vec();
-
-        println!("==Full Buffer: {}==", String::from_utf8_lossy(&dynamo_buffer));
-        println!("==Headers: {}==", String::from_utf8_lossy(&dynamo_buffer[..body_start]));
-        println!("==Body candidate: {}==", String::from_utf8_lossy(&dynamo_buffer[body_start..]));
-
-        println!("Content Length: {:?}", content_length);
-        println!("Already Read Body: {:?}", already_read_body);
-        println!("Already Read Body Length: {:?}", already_read_body.len());
-        println!("Already Read Body (as text): {}", String::from_utf8_lossy(already_read_body));
-
-        //content length request body problem
-        
 
         match content_length {
             Ok(content_length) => {
@@ -71,7 +66,6 @@ fn main() {
                 continue;
             }
         }
-        println!("Content Length: {:?}", content_length);
     
         let mut full_request = dynamo_buffer[..body_start].to_vec();
         full_request.extend_from_slice(&full_body);

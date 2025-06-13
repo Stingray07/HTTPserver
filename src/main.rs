@@ -10,7 +10,7 @@ use http_utils::parser;
 use http_utils::status::ParseError;
 use http_utils::api as api_utils;
 use http_utils::response;
-use http_utils::request::{self, ParsedRequest};
+use http_utils::request::{self, ParsedRequest, read_until_body, query_to_map};
 use routes::web;
 use api::v1;
 
@@ -24,24 +24,7 @@ fn main() {
         let mut dynamo_buffer = Vec::new();
         let mut pre_buffer = [0; 1024]; 
 
-        loop {
-            match stream.read(&mut pre_buffer) {
-                Ok(0) => {
-                    eprintln!("Connection closed before complete headers");
-                    break;
-                }
-                Ok(n) => {
-                    dynamo_buffer.extend_from_slice(&pre_buffer[..n]); // Only use bytes read
-                    if dynamo_buffer.windows(4).any(|window| window == b"\r\n\r\n") {
-                        break;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to read from stream: {}", e);
-                    break; 
-                }
-            }
-        }
+        let _ = read_until_body(&mut stream, &mut pre_buffer, &mut dynamo_buffer);
 
         let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
         let content_length = parser::get_content_length(&dynamo_buffer);
@@ -94,18 +77,30 @@ fn main() {
 
         println!("Body: {:?}", body);
 
+        let (path, query) = match request_path.find('?') {
+            Some(i) => {(&request_path[..i], &request_path[i + 1..])}
+            None => (request_path, ""),
+        };
+
+        println!("Path: {}", path);
+        println!("Query: {}", query);
+
+        let query_map = query_to_map(query);
+
+        println!("Query Map: {:#?}", query_map);
+
         //MATCH FOR BOTH API AND HTTP
-        let response: Vec<u8> = match (request_method, request::sanitize_path(request_path)) {
+        let response: Vec<u8> = match (request_method, request::sanitize_path(path)) {
             (_, Some("400")) => web::handle_400(),
-            ("GET", Some("/api/v1/users")) => v1::users::handle_get_user(),
-            ("POST", Some("/api/v1/posts")) => v1::posts::handle_post_post(body),
+            ("GET", Some("/api/v1/users")) => v1::users::handle_get_user(query_map),
+            ("POST", Some("/api/v1/posts")) => v1::posts::handle_post_post(query_map, body),
             ("GET", Some("/")) => web::handle_home(),
             ("GET", Some("/about")) => web::handle_about(),
-            ("GET",  Some("/submit")) => web::handle_submit_get(),
-            ("POST", Some("/submit/json")) => web::submit_post_handler(body),
-            ("POST", Some("/submit/text")) => web::submit_post_handler(body),
-            ("POST", Some("/submit/binary")) => web::submit_post_handler(body),
-            ("GET", Some(request_path)) => response::serve_file(request_path),
+            ("GET",  Some("/submit")) => web::handle_submit_get(query_map),
+            ("POST", Some("/submit/json")) => web::submit_post_handler(query_map, body),
+            ("POST", Some("/submit/text")) => web::submit_post_handler(query_map, body),
+            ("POST", Some("/submit/binary")) => web::submit_post_handler(query_map, body),
+            ("GET", Some(path)) => response::serve_file(path),
 
             (_, None) => web::handle_403(),
             _ => web::handle_404(),

@@ -1,8 +1,9 @@
 use crate::http_utils::status::Status;
 use crate::http_utils::response::api_response;
 use crate::http_utils::request::UniversalBody;
+use std::collections::HashMap;
 
-pub fn handle_post_post(body: UniversalBody) -> Vec<u8> {
+pub fn handle_post_post(query_map: HashMap<String, String>, body: UniversalBody) -> Vec<u8> {
     match body {
         UniversalBody::Json(value) => {
             println!("JSON: {:?}", value);

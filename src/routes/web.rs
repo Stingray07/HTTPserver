@@ -1,4 +1,5 @@
 use serde_json::Value;
+use std::collections::HashMap;
 
 use crate::http_utils::{request::{HttpRequest, ParsedRequest, UniversalBody}, response::html_response, status::Status};
 
@@ -15,11 +16,11 @@ pub fn handle_404() -> Vec<u8> {
     html_response(Status::NotFound, "NOT FOUND", "The requested file was not found")
 }
 
-pub fn handle_submit_get() -> Vec<u8> {
+pub fn handle_submit_get(query_map: HashMap<String, String>) -> Vec<u8> {
     html_response(Status::Ok, "SUBMIT GET", "SUBMIT GET")
 }
 
-pub fn submit_post_handler(body: UniversalBody) -> Vec<u8> {
+pub fn submit_post_handler(query_map: HashMap<String, String>, body: UniversalBody) -> Vec<u8> {
     match body {
         UniversalBody::Json(json) => {
             handle_submit_post_json(json)

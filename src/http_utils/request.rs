@@ -1,32 +1,11 @@
-use serde_json::Value;
-
-use crate::http_utils::api::ApiRequest;
+use crate::api::v1;
+use crate::http_utils::response;
+use crate::http_utils::status::ParseError;
+use crate::routes::web;
+use crate::http_utils::types::{ParsedRequest, UniversalBody};
 use std::collections::HashMap;
-
-#[derive(Debug)]
-pub struct HttpRequest{
-    pub method: String,
-    pub path: String, 
-    pub version: String,
-    pub headers: HashMap<String, String>,
-    pub body: UniversalBody,
-}
-
-#[derive(Debug)]
-pub enum ParsedRequest {
-    Api(ApiRequest),
-    HTTP(HttpRequest),
-}
-
-#[derive(Debug, Clone)]
-pub enum UniversalBody {
-    Json(Value),
-    Binary(Vec<u8>),
-    Text(String)
-}
-
 use std::net::TcpStream;
-use std::io::{Read, Write};
+use std::io::{Read};
 
 pub fn sanitize_path(path: &str) -> Option<&str> {
     if path.contains("..") || path.contains('\0') || path.contains("/.") {
@@ -58,7 +37,7 @@ pub fn is_api_request(buffer: &[u8]) -> bool {
     res
 }
 
-pub fn read_until_body<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, std::io::Error> {
+pub fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, std::io::Error> {
     loop {
         match stream.read(pre_buffer) {
             Ok(0) => {
@@ -80,6 +59,26 @@ pub fn read_until_body<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo
     Ok(dynamo_buffer)
 }
 
+pub fn read_body<'a>(content_length: Result<usize, ParseError>, stream: &mut TcpStream, full_body: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, std::io::Error> {
+    match content_length {
+        Ok(content_length) => {
+            if content_length == 0 {
+                full_body.clear();
+            } else {
+                let mut body_buffer = vec![0; content_length - full_body.len()];
+                let _ = stream.read_exact(&mut body_buffer);
+
+                full_body.extend_from_slice(&body_buffer);
+            }
+            Ok(full_body)
+        }
+        Err(_) => {
+            eprintln!("Failed to get content length");
+            Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Failed to get content length"))
+        }
+    }
+}
+
 pub fn query_to_map(query: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for pair in query.split('&') {
@@ -90,4 +89,47 @@ pub fn query_to_map(query: &str) -> HashMap<String, String> {
         map.insert(key.to_string(), value.to_string());
     }
     map
+}
+
+pub fn extract_request_parts(parsed_request: ParsedRequest) -> Result<(UniversalBody, String, String, HashMap<String, String>), ParseError>{
+    let (request_path, request_method, body) = match &parsed_request {
+        ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str(), api_req.body.clone()),
+        ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str(), http_req.body.clone()),
+    };
+
+    println!("Body: {:?}", body);
+
+    let (path, query) = match request_path.find('?') {
+        Some(i) => {(&request_path[..i], &request_path[i + 1..])}
+        None => (request_path, ""),
+    };
+
+    println!("Path: {}", path);
+    println!("Query: {}", query);
+
+    let query_map = query_to_map(query);
+
+    println!("Query Map: {:#?}", query_map);
+
+    Ok((body, path.to_string(), request_method.to_string(), query_map))
+}
+
+pub fn route_request(request_method: &str, path: &str, body: UniversalBody, query_map: HashMap<String, String>) -> Result<Vec<u8>, ParseError> {
+    //MATCH FOR BOTH API AND HTTP
+    let response: Vec<u8> = match (request_method, sanitize_path(path)) {
+        (_, Some("400")) => web::handle_400(),
+        ("GET", Some("/api/v1/users")) => v1::users::handle_get_user(query_map),
+        ("POST", Some("/api/v1/posts")) => v1::posts::handle_post_post(query_map, body),
+        ("GET", Some("/")) => web::handle_home(),
+        ("GET", Some("/about")) => web::handle_about(),
+        ("GET",  Some("/submit")) => web::handle_submit_get(query_map),
+        ("POST", Some("/submit/json")) => web::submit_post_handler(query_map, body),
+        ("POST", Some("/submit/text")) => web::submit_post_handler(query_map, body),
+        ("POST", Some("/submit/binary")) => web::submit_post_handler(query_map, body),
+        ("GET", Some(path)) => response::serve_file(path),
+
+        (_, None) => web::handle_403(),
+        _ => web::handle_404(),
+    };
+    Ok(response)
 }

@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs};
 use std::path::Path;
 use crate::http_utils::{response, status::Status};
 use serde_json::Value as JsonValue;
-use super::api::ApiResponse;
+use crate::http_utils::types::ApiResponse;
 
 
 pub fn serve_file(file_path: &str) -> Vec<u8> {

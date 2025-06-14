@@ -1,9 +1,6 @@
-use crate::api_utils::ApiRequest;
-use crate::http_utils::request::UniversalBody;
+use crate::http_utils::types::{ApiRequest, HttpRequest, UniversalBody};
 use crate::http_utils::status::ParseError;
 use std::collections::HashMap;
-use serde_json::Value as JsonValue;
-use crate::request::HttpRequest;
 
 pub fn parse_request_line(line: &str) -> Result<(String, String, String), ParseError> {
     let parts: Vec<&str> = line.split_whitespace().collect();

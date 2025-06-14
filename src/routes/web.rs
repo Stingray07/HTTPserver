@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::http_utils::{request::{HttpRequest, ParsedRequest, UniversalBody}, response::html_response, status::Status};
+use crate::http_utils::{types::{HttpRequest, ParsedRequest, UniversalBody}, response::html_response, status::Status};
 
 
 pub fn handle_about() -> Vec<u8> {

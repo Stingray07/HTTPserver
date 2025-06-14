@@ -8,11 +8,11 @@ mod api;
 
 use http_utils::parser;
 use http_utils::status::ParseError;
-use http_utils::api as api_utils;
-use http_utils::response;
-use http_utils::request::{self, ParsedRequest, read_until_body, query_to_map};
+use http_utils::types::ParsedRequest;
+use http_utils::request::{self, read_header, read_body};
 use routes::web;
-use api::v1;
+
+use crate::http_utils::request::extract_request_parts;
 
 
 fn main() {
@@ -24,7 +24,14 @@ fn main() {
         let mut dynamo_buffer = Vec::new();
         let mut pre_buffer = [0; 1024]; 
 
-        let _ = read_until_body(&mut stream, &mut pre_buffer, &mut dynamo_buffer);
+        match read_header(&mut stream, &mut pre_buffer, &mut dynamo_buffer) {
+            Ok(_) => {},
+            Err(e) => {
+                eprintln!("Failed to read header from stream: {}", e);
+                let _ = send_response(&mut stream, web::handle_400());
+                continue;
+            }
+        }
 
         let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
         let content_length = parser::get_content_length(&dynamo_buffer);
@@ -32,24 +39,16 @@ fn main() {
         let already_read_body =  &dynamo_buffer[body_start..];
         let mut full_body = already_read_body.to_vec();
 
-        match content_length {
-            Ok(content_length) => {
-                if content_length == 0 {
-                    full_body = Vec::new();
-                } else {
-                    let mut body_buffer = vec![0; content_length - already_read_body.len()];
-                    let _ = stream.read_exact(&mut body_buffer);
-
-                    full_body.extend_from_slice(&body_buffer);
-                }
-            }
-            Err(_) => {
-                eprintln!("Failed to get content length");
+        match read_body(content_length, &mut stream, &mut full_body) {
+            Ok(_) => {},
+            Err(e) => {
+                eprintln!("Failed to read body from stream: {}", e);
                 let _ = send_response(&mut stream, web::handle_400());
                 continue;
             }
         }
     
+        //Combine header and body
         let mut full_request = dynamo_buffer[..body_start].to_vec();
         full_request.extend_from_slice(&full_body);
 
@@ -70,40 +69,24 @@ fn main() {
 
         println!("Parsed Request: {:?}", parsed_request);
 
-        let (request_path, request_method, body) = match &parsed_request {
-            ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str(), api_req.body.clone()),
-            ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str(), http_req.body.clone()),
+        let (body, path, request_method, query_map) = match extract_request_parts(parsed_request) {
+            Ok((body, path, request_method, query_map)) => {
+                (body, path, request_method, query_map)
+            }
+            Err(e) => {
+                eprintln!("Extract Failed: {:?}", e);
+                let _ = send_response(&mut stream, web::handle_400());
+                continue;
+            }
         };
 
-        println!("Body: {:?}", body);
-
-        let (path, query) = match request_path.find('?') {
-            Some(i) => {(&request_path[..i], &request_path[i + 1..])}
-            None => (request_path, ""),
-        };
-
-        println!("Path: {}", path);
-        println!("Query: {}", query);
-
-        let query_map = query_to_map(query);
-
-        println!("Query Map: {:#?}", query_map);
-
-        //MATCH FOR BOTH API AND HTTP
-        let response: Vec<u8> = match (request_method, request::sanitize_path(path)) {
-            (_, Some("400")) => web::handle_400(),
-            ("GET", Some("/api/v1/users")) => v1::users::handle_get_user(query_map),
-            ("POST", Some("/api/v1/posts")) => v1::posts::handle_post_post(query_map, body),
-            ("GET", Some("/")) => web::handle_home(),
-            ("GET", Some("/about")) => web::handle_about(),
-            ("GET",  Some("/submit")) => web::handle_submit_get(query_map),
-            ("POST", Some("/submit/json")) => web::submit_post_handler(query_map, body),
-            ("POST", Some("/submit/text")) => web::submit_post_handler(query_map, body),
-            ("POST", Some("/submit/binary")) => web::submit_post_handler(query_map, body),
-            ("GET", Some(path)) => response::serve_file(path),
-
-            (_, None) => web::handle_403(),
-            _ => web::handle_404(),
+        let response: Vec<u8> = match request::route_request(&request_method, &path, body, query_map) {
+            Ok(res) => res,
+            Err(e) => {
+                eprintln!("Route Failed: {:?}", e);
+                let _ = send_response(&mut stream, web::handle_400());
+                continue;
+            }
         };
 
         let _ = send_response(&mut stream, response);

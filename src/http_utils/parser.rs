@@ -1,4 +1,4 @@
-use crate::http_utils::types::{ApiRequest, HttpRequest, UniversalBody};
+use crate::http_utils::types::{ApiRequest, HttpRequest, UniversalBody, ParsedRequest};
 use crate::http_utils::status::ParseError;
 use std::collections::HashMap;
 
@@ -110,6 +110,21 @@ pub fn deserialize_body(body: &[u8], content_type: &str) -> Result<UniversalBody
             String::from_utf8(body.to_vec())
                 .map(UniversalBody::Text)
                 .map_err(|_| ParseError::MalformedRequest)
+        }
+    }
+}
+
+pub fn parse_request_by_type(is_api: bool, buffer: &[u8]) -> Result<ParsedRequest, ParseError> {
+
+    if is_api {
+        match parse_api_request(buffer) {
+            Ok(req) => Ok(ParsedRequest::Api(req)),
+            Err(e) => Err(e),
+        }
+    } else {
+        match parse_web_request(buffer) {
+            Ok(req) => Ok(ParsedRequest::HTTP(req)),
+            Err(e) => Err(e),
         }
     }
 }

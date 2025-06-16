@@ -1,4 +1,6 @@
-use std::{collections::HashMap, fs};
+use std::net::TcpStream;
+use std::io::{Read, Write};
+use std::fs;
 use std::path::Path;
 use crate::http_utils::{response, status::Status};
 use serde_json::Value as JsonValue;
@@ -65,4 +67,34 @@ pub fn html_response(status: Status, title: &str, message: &str) -> Vec<u8> {
         title, message
     );
     build_response(status, "text/html", body.as_bytes())
+}
+
+pub fn send_response(stream: &mut TcpStream, response: Vec<u8>) -> std::io::Result<()> {
+    log_response(&response);
+    stream.write_all(&response).unwrap();
+
+    // Send the response right away because it might stay in the buffer
+    stream.flush().unwrap();
+    Ok(())
+}
+
+pub fn log_response(response: &[u8]) {
+    // Find the end of headers (\r\n\r\n)
+    if let Some(pos) = response.windows(4).position(|w| w == b"\r\n\r\n") {
+        println!("=== Response Headers ===");
+        println!("{}", String::from_utf8_lossy(&response[..pos]));
+        
+        let body_start = pos + 4;
+        println!("Body length: {} bytes", response.len() - body_start);
+        
+        // Print text bodies
+        if let Ok(text) = String::from_utf8(response[body_start..].to_vec()) {
+            if !text.is_empty() {
+                println!("Body:\n{}", text);
+            }
+        }
+    } else {
+        println!("[Malformed HTTP response]");
+    }
+    println!("================================");
 }

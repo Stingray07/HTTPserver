@@ -37,12 +37,12 @@ pub fn is_api_request(buffer: &[u8]) -> bool {
     res
 }
 
-pub fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, std::io::Error> {
+pub fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, ParseError> {
     loop {
         match stream.read(pre_buffer) {
             Ok(0) => {
                 eprintln!("Connection closed before complete headers");
-                return Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Connection closed before complete headers"))
+                return Err(ParseError::ConnectionAborted)
             }
             Ok(n) => {
                 dynamo_buffer.extend_from_slice(&pre_buffer[..n]); // Only use bytes read
@@ -50,16 +50,23 @@ pub fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buf
                     break;
                 }
             }
+            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+                eprintln!("Connection timed out");
+                return Err(ParseError::ConnectionAborted);
+            }
+
             Err(e) => {
                 eprintln!("Failed to read from stream: {}", e);
-                return Err(e); 
+                return Err(ParseError::MalformedRequest); 
             }
         }
     }
     Ok(dynamo_buffer)
 }
 
-pub fn read_body<'a>(content_length: Result<usize, ParseError>, stream: &mut TcpStream, full_body: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, std::io::Error> {
+
+//TODO: TIMEOUT CHECK HERE
+pub fn read_body<'a>(content_length: Result<usize, ParseError>, stream: &mut TcpStream, full_body: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, ParseError> {
     match content_length {
         Ok(content_length) => {
             if content_length == 0 {
@@ -72,9 +79,13 @@ pub fn read_body<'a>(content_length: Result<usize, ParseError>, stream: &mut Tcp
             }
             Ok(full_body)
         }
-        Err(_) => {
+        Err(ParseError::ConnectionAborted) => {
+            eprintln!("Connection timed out");
+            return Err(ParseError::ConnectionAborted);
+        }
+        Err(ParseError::MalformedRequest) => {
             eprintln!("Failed to get content length");
-            Err(std::io::Error::new(std::io::ErrorKind::ConnectionAborted, "Failed to get content length"))
+            return Err(ParseError::MalformedRequest);
         }
     }
 }
@@ -91,10 +102,10 @@ pub fn query_to_map(query: &str) -> HashMap<String, String> {
     map
 }
 
-pub fn extract_request_parts(parsed_request: ParsedRequest) -> Result<(UniversalBody, String, String, HashMap<String, String>), ParseError>{
-    let (request_path, request_method, body) = match &parsed_request {
-        ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str(), api_req.body.clone()),
-        ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str(), http_req.body.clone()),
+pub fn extract_request_parts(parsed_request: ParsedRequest) -> Result<(UniversalBody, String, String, HashMap<String, String>, HashMap<String, String>), ParseError>{
+    let (request_path, request_method, body, headers) = match &parsed_request {
+        ParsedRequest::Api(api_req) => (api_req.path.as_str(), api_req.method.as_str(), api_req.body.clone(), api_req.headers.clone()),
+        ParsedRequest::HTTP(http_req) => (http_req.path.as_str(), http_req.method.as_str(), http_req.body.clone(), http_req.headers.clone()),
     };
 
     println!("Body: {:?}", body);
@@ -111,7 +122,7 @@ pub fn extract_request_parts(parsed_request: ParsedRequest) -> Result<(Universal
 
     println!("Query Map: {:#?}", query_map);
 
-    Ok((body, path.to_string(), request_method.to_string(), query_map))
+    Ok((body, path.to_string(), request_method.to_string(), query_map, headers))
 }
 
 pub fn route_request(request_method: &str, path: &str, body: UniversalBody, query_map: HashMap<String, String>) -> Result<Vec<u8>, ParseError> {
@@ -132,4 +143,12 @@ pub fn route_request(request_method: &str, path: &str, body: UniversalBody, quer
         _ => web::handle_404(),
     };
     Ok(response)
+}
+
+pub fn error_handler(error: ParseError) -> Vec<u8> {
+    match error {
+        ParseError::MalformedRequest => web::handle_400(),
+        ParseError::ConnectionAborted => web::handle_408(),
+        _ => web::handle_500(),
+    }
 }

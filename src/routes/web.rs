@@ -62,3 +62,7 @@ pub fn handle_400() -> Vec<u8> {
     html_response(Status::BadRequest, "BAD_REQUEST", "BAD REQUEST")
 }
 
+pub fn handle_408() -> Vec<u8> {
+    html_response(Status::RequestTimeout, "REQUEST TIMEOUT", "REQUEST TIMEOUT")
+}
+

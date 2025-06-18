@@ -4,13 +4,13 @@ mod http_utils;
 mod routes;
 mod api;
 
-use http_utils::parser;
 use http_utils::parser::parse_request_by_type;
-use http_utils::request::{read_header, read_body, route_request, error_handler};
+use http_utils::request::reader::full_read_request;
 use http_utils::response::{send_response, log_response};
 
-use crate::http_utils::request::extract_request_parts;
-
+use crate::http_utils::request::request_logic::{is_api_request, error_handler};
+use crate::http_utils::request::extractor::extract_request_parts;
+use crate::http_utils::request::router::route_request;
 
 
 fn main() {
@@ -20,7 +20,6 @@ fn main() {
     for stream in listener.incoming(){
         let mut stream = stream.unwrap();
         handle_connection(&mut stream);
-        //TODO: Make this HTTP/1.1 compatible with keep-alive
     }
 }
 
@@ -34,43 +33,17 @@ fn handle_connection(stream: &mut TcpStream) {
         let mut dynamo_buffer = Vec::new();
         let mut pre_buffer = [0; 1024]; 
     
-        println!("Reading header...");
-        match read_header(stream, &mut pre_buffer, &mut dynamo_buffer) {
-            Ok(_) => {
-                println!("Header read");
-            },
+        let full_request = match full_read_request(stream, &mut pre_buffer, &mut dynamo_buffer) {
+            Ok(req) => req,
             Err(e) => {
-                eprintln!("Error reading header: {:?}", e);
+                eprintln!("Error reading request: {:?}", e);
                 let handler = error_handler(e);
                 let _ = send_response(stream, handler);
                 return;
             }
-        }
-        println!("Header read");
-        let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
-        let content_length = parser::get_content_length(&dynamo_buffer);
-        let body_start = header_end.unwrap() + 4;
-        let already_read_body =  &dynamo_buffer[body_start..];
-        let mut full_body = already_read_body.to_vec();
+        };
     
-        match read_body(content_length, stream, &mut full_body) {
-            Ok(_) => {},
-            Err(e) => {
-                eprintln!("Error reading body: {:?}", e);
-                let handler = error_handler(e);
-                let _ = send_response(stream, handler);
-                return;
-            }
-        }
-    
-        //Combine header and body
-        let mut full_request = dynamo_buffer[..body_start].to_vec();
-        full_request.extend_from_slice(&full_body);
-    
-        println!("FULL Request: {}", String::from_utf8_lossy(&full_request[..]));
-        println!("================================");
-    
-        let is_api = http_utils::request::is_api_request(&full_request);
+        let is_api = is_api_request(&full_request);
         println!("Is API: {}", is_api);
         
         let parsed_request = match parse_request_by_type(is_api, &full_request) {

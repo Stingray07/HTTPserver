@@ -50,6 +50,10 @@ pub fn handle_submit_post_binary(body: Vec<u8>) -> Vec<u8> {
     html_response(Status::Ok, "SUBMIT POST", "BINARY")
 }
 
+pub fn handle_transfer_chunk_encoding() -> Vec<u8> {
+    html_response(Status::Ok, "TRANSFER CHUNK ENCODING", "TRANSFER CHUNK ENCODING")
+}
+
 pub fn handle_500() -> Vec<u8> {
     html_response(Status::InternalError, "INTERNAL SERVER ERROR", "SERVER ERROR")
 }
@@ -65,4 +69,3 @@ pub fn handle_400() -> Vec<u8> {
 pub fn handle_408() -> Vec<u8> {
     html_response(Status::RequestTimeout, "REQUEST TIMEOUT", "REQUEST TIMEOUT")
 }
-

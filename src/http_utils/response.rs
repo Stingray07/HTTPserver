@@ -2,6 +2,7 @@ use std::net::TcpStream;
 use std::io::{Read, Write};
 use std::fs;
 use std::path::Path;
+use std::slice::ChunkBy;
 use crate::http_utils::{response, status::Status};
 use serde_json::Value as JsonValue;
 use crate::http_utils::types::ApiResponse;
@@ -97,4 +98,28 @@ pub fn log_response(response: &[u8]) {
         println!("[Malformed HTTP response]");
     }
     println!("================================");
+}
+
+
+// TODO: Separate this maybe
+pub fn send_chunky_body(stream: &mut TcpStream, body: &Vec<u8>) {
+    let chunk_size: usize = 8;  
+    let mut i = 0;
+
+    while i < body.len() {
+        let end = (i + chunk_size).min(body.len());
+        let chunk = &body[i..end];
+        let chunk_size = end - i;
+
+        let mut response = format!("{:X}\r\n", chunk_size).as_bytes().to_vec();
+        response.extend_from_slice(chunk);
+        response.extend_from_slice("\r\n".as_bytes());
+
+
+        let _ = send_response(stream, response);
+
+        i += chunk_size;
+    };
+
+    let _ = send_response(stream, b"0\r\n\r\n".to_vec());
 }

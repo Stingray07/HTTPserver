@@ -12,8 +12,18 @@ pub struct ApiRequest {
     pub body: UniversalBody,  
 }
 
+pub struct HttpResponse {
+    pub headers: HashMap<String, String>,
+    pub body: UniversalBody,
+}
+
+pub struct ApiHttpResponse {
+    pub headers: HashMap<String, String>,
+    pub body: ApiBody,
+}
+
 #[derive(Serialize)]
-pub struct ApiResponse {
+pub struct ApiBody {
     pub status: String,
     pub body: JsonValue,
 }
@@ -31,6 +41,11 @@ pub struct HttpRequest{
 pub enum ParsedRequest {
     Api(ApiRequest),
     HTTP(HttpRequest),
+}
+
+pub enum Response {
+    Api(ApiHttpResponse),
+    HTTP(HttpResponse),
 }
 
 #[derive(Debug, Clone)]

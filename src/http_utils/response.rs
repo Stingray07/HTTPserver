@@ -1,11 +1,10 @@
 use std::net::TcpStream;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::fs;
 use std::path::Path;
-use std::slice::ChunkBy;
-use crate::http_utils::{response, status::Status};
-use serde_json::Value as JsonValue;
-use crate::http_utils::types::ApiResponse;
+use crate::http_utils::{response, status::{self, Status}, types::{ApiBody, ApiHttpResponse, HttpResponse, Response, UniversalBody}};
+use serde_json::Value;
+use std::collections::HashMap;
 
 
 pub fn serve_file(file_path: &str) -> Vec<u8> {
@@ -39,22 +38,62 @@ pub fn get_content_type(file_path: &str) -> &str {
     }
 }
 
-pub fn build_response(status: Status, content_type: &str, body: &[u8]) -> Vec<u8> {
-    let mut response = status.line().to_vec();
-    response.extend_from_slice(format!(
-        "Content-Type: {}\r\nContent-Length: {}\r\n",
-        content_type,
-        body.len()
-    ).as_bytes());
-    response.extend_from_slice(format!("\r\n").as_bytes());
-    response.extend(body);
-    response
+fn match_content_type(content_type: &str, body: &[u8]) -> UniversalBody {
+    match content_type {
+        "text/plain" => UniversalBody::Text(String::from_utf8_lossy(body).to_string()),
+        "application/json" => {
+            UniversalBody::Json(Value::String(String::from_utf8_lossy(body).to_string()))
+        },
+        "application/octet-stream" => UniversalBody::Binary(Vec::from(body)),
+        _ => UniversalBody::Text(String::from_utf8_lossy(body).to_string()),
+    }
+}
+
+// TODO: DRY, ALSO COULD/SHOULD(?) RETURN STRUCT INSTEAD OF Vec<u8>
+pub fn build_response(status: Status, content_type: &str, body: &[u8], response_type: Response) -> Vec<u8> {
+    let status_line = String::from_utf8_lossy(status.line()).to_string();
+    let mut response_header = HashMap::new();
+    match response_type {
+        Response::HTTP(_) => {
+            response_header.insert("Content-Type".to_string(), content_type.to_string());
+            response_header.insert("Content-Length".to_string(), body.len().to_string());
+            response_header.insert("Status".to_string(), status_line);
+
+            // TODO: Convert to HTTP format
+
+            let response = HttpResponse {
+                headers: response_header,
+                body: match_content_type(content_type, body),
+            };
+            response 
+
+            // TODO: Convert to Vec<u8>
+        }
+        Response::Api(_) => {
+            response_header.insert("Content-Type".to_string(), content_type.to_string());
+            response_header.insert("Content-Length".to_string(), body.len().to_string());
+            response_header.insert("Status".to_string(), status_line);
+
+            // TODO: Convert to HTTP format
+
+            let response = ApiHttpResponse {
+                headers: response_header,
+                body: ApiBody {
+                    status: status_line,
+                    body: Value::String(String::from_utf8_lossy(body).to_string()),
+                },
+            };
+            response 
+
+            // TODO: Convert to Vec<u8>
+        }
+    }
 }
 
 pub fn api_response(status: Status, body: &[u8]) -> Vec<u8> {
     let body: JsonValue = serde_json::from_slice(body).unwrap();
 
-    let response_body = ApiResponse {
+    let response_body = ApiBody {
         status: String::from_utf8_lossy(status.line()).to_string(),
         body: body,
     };
@@ -100,24 +139,25 @@ pub fn log_response(response: &[u8]) {
     println!("================================");
 }
 
+fn build_chunk(body: &Vec<u8>, chunk_size: usize, i: usize) -> Vec<u8> {
+    let end = (i + chunk_size).min(body.len());
+    let chunk = &body[i..end];
+    let chunk_size = end - i;
+
+    let mut response = format!("{:X}\r\n", chunk_size).as_bytes().to_vec();
+    response.extend_from_slice(chunk);
+    response.extend_from_slice("\r\n".as_bytes());
+    response
+}
 
 // TODO: Separate this maybe
-pub fn send_chunky_body(stream: &mut TcpStream, body: &Vec<u8>) {
+pub fn send_chunky_body(body: &Vec<u8>) {
     let chunk_size: usize = 8;  
     let mut i = 0;
 
     while i < body.len() {
-        let end = (i + chunk_size).min(body.len());
-        let chunk = &body[i..end];
-        let chunk_size = end - i;
-
-        let mut response = format!("{:X}\r\n", chunk_size).as_bytes().to_vec();
-        response.extend_from_slice(chunk);
-        response.extend_from_slice("\r\n".as_bytes());
-
-
-        let _ = send_response(stream, response);
-
+        let chunk = build_chunk(body, chunk_size, i);
+        let response = chunk;
         i += chunk_size;
     };
 

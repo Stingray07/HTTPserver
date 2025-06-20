@@ -18,6 +18,7 @@ pub fn route_request(request_method: &str, path: &str, body: UniversalBody, quer
         ("POST", Some("/submit/json")) => web::submit_post_handler(query_map, body),
         ("POST", Some("/submit/text")) => web::submit_post_handler(query_map, body),
         ("POST", Some("/submit/binary")) => web::submit_post_handler(query_map, body),
+        ("GET", Some("/chunky")) => web::handle_transfer_chunk_encoding(),
         ("GET", Some(path)) => response::serve_file(path),
 
         (_, None) => web::handle_403(),

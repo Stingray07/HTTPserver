@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::http_utils::{response::{html_response, send_chunky_body}, status::Status, types::{HttpRequest, ParsedRequest, UniversalBody}};
+use crate::http_utils::{response::{html_response}, status::Status, types::{HttpRequest, ParsedRequest, UniversalBody}};
 
 
 pub fn handle_about() -> Vec<u8> {
@@ -51,7 +51,8 @@ pub fn handle_submit_post_binary(body: Vec<u8>) -> Vec<u8> {
 }
 
 pub fn handle_transfer_chunk_encoding() -> Vec<u8> {
-    send_chunky_body(stream, body);
+    // send_chunky_body(stream, body);
+    html_response(Status::Ok, "TRANSFER CHUNK ENCODING", "TRANSFER CHUNK ENCODING")
 }
 
 pub fn handle_500() -> Vec<u8> {

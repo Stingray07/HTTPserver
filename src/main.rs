@@ -12,7 +12,7 @@ use crate::http_utils::request::request_logic::{is_api_request, error_handler};
 use crate::http_utils::request::extractor::extract_request_parts;
 use crate::http_utils::request::router::route_request;
 
-
+//TODO: SERVER RETURNING A MALFORMED RESPONSE 😥
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
     println!("Server listening on http://127.0.0.1:7878");
@@ -81,6 +81,7 @@ fn handle_connection(stream: &mut TcpStream) {
         };
     
         log_response(&response);
+        println!("Response: {}", String::from_utf8_lossy(&response));
         let _ = send_response(stream, response);
 
         if headers.get("Connection").unwrap_or(&"keep-alive".to_string()).to_lowercase() == "close" {

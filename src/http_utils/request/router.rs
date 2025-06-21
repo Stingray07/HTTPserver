@@ -6,7 +6,8 @@ use crate::routes::web;
 use crate::api::v1;
 use crate::http_utils::response;
 
-pub fn route_request(request_method: &str, path: &str, body: UniversalBody, query_map: HashMap<String, String>) -> Result<Vec<u8>, ParseError> {
+
+pub fn route_request(request_method: &str, path: &str, body: UniversalBody, query_map: HashMap<String, String>) -> Result<Vec<u8>, ParseError > { //Route Error no>?
     //MATCH FOR BOTH API AND HTTP
     let response: Vec<u8> = match (request_method, sanitize_path(path)) {
         (_, Some("400")) => web::handle_400(),
@@ -19,7 +20,13 @@ pub fn route_request(request_method: &str, path: &str, body: UniversalBody, quer
         ("POST", Some("/submit/text")) => web::submit_post_handler(query_map, body),
         ("POST", Some("/submit/binary")) => web::submit_post_handler(query_map, body),
         ("GET", Some("/chunky")) => web::handle_transfer_chunk_encoding(),
-        ("GET", Some(path)) => response::serve_file(path),
+        ("GET", Some(path)) => match response::serve_file(path) {
+            Ok(response) => response,
+            Err(e) => {
+                println!("Error: {:?}", e);
+                return Err(e);
+            }
+        },
 
         (_, None) => web::handle_403(),
         _ => web::handle_404(),

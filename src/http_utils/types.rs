@@ -12,15 +12,12 @@ pub struct ApiRequest {
     pub body: UniversalBody,  
 }
 
-pub struct HttpResponse {
+pub struct Response {
+    pub status: String,
     pub headers: HashMap<String, String>,
-    pub body: UniversalBody,
+    pub body: Vec<u8>,
 }
 
-pub struct ApiHttpResponse {
-    pub headers: HashMap<String, String>,
-    pub body: ApiBody,
-}
 
 #[derive(Serialize)]
 pub struct ApiBody {
@@ -43,9 +40,30 @@ pub enum ParsedRequest {
     HTTP(HttpRequest),
 }
 
-pub enum Response {
-    Api(ApiHttpResponse),
-    HTTP(HttpResponse),
+impl Response {
+    pub fn convert_to_vec(&self) -> Vec<u8> {
+        match self {
+            Response { status, headers, body } => {
+                let header_vec = Response::header_to_vec(headers.clone());
+                let body_vec = body.clone();
+                let mut response_vec = Vec::new();
+                response_vec.extend_from_slice(status.as_bytes());
+                response_vec.extend_from_slice(&header_vec);
+                response_vec.extend_from_slice(b"\r\n");
+                response_vec.extend_from_slice(&body_vec);
+                response_vec
+            }
+        }
+    }
+
+    fn header_to_vec(header: HashMap<String, String>) -> Vec<u8> {
+        let mut header_vec = Vec::new();
+        for (key, value) in header {
+            header_vec.extend_from_slice(format!("{}: {}\r\n", key, value).as_bytes());
+        }
+        header_vec.extend_from_slice(b"\r\n");
+        header_vec
+    }
 }
 
 #[derive(Debug, Clone)]

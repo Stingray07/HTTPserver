@@ -32,11 +32,9 @@ pub fn query_to_map(query: &str) -> HashMap<String, String> {
     map
 }
 
-
 pub fn error_handler(error: ParseError) -> Vec<u8> {
     match error {
         ParseError::MalformedRequest => web::handle_400(),
         ParseError::ConnectionAborted => web::handle_408(),
-        _ => web::handle_500(),
     }
 }

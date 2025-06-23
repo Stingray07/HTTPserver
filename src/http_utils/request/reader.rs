@@ -68,7 +68,6 @@ pub fn full_read_request(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_b
             return Err(error);
         }
     }
-    println!("Header read");
     let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
     let content_length = parser::get_content_length(&dynamo_buffer);
     let body_start = header_end.unwrap() + 4;

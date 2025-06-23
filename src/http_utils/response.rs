@@ -68,7 +68,6 @@ fn build_response_header(status: Status, content_type: &str, body: &[u8]) -> Has
     response_header
 }
 
-// TODO: DRY, ALSO COULD/SHOULD(?) RETURN STRUCT INSTEAD OF Vec<u8>
 pub fn build_response(status: Status, content_type: &str, body: &[u8]) -> Result<Response, ParseError> {
     let status_line = String::from_utf8_lossy(status.line()).to_string();
     let response_header = build_response_header(status, content_type, body);
@@ -77,6 +76,9 @@ pub fn build_response(status: Status, content_type: &str, body: &[u8]) -> Result
         headers: response_header,
         body: body.to_vec(),
     };
+    println!("Response.status: {}", response.status);
+    println!("Response.headers: {:?}", response.headers);
+    println!("Response.body: {}", String::from_utf8_lossy(&response.body));
     Ok(response)
 }
 
@@ -142,16 +144,16 @@ fn build_chunk(body: &Vec<u8>, chunk_size: usize, i: usize) -> Vec<u8> {
     response
 }
 
-// // TODO: Separate this maybe
-// pub fn send_chunky_body(body: &Vec<u8>) {
-//     let chunk_size: usize = 8;  
-//     let mut i = 0;
+// TODO: Separate this maybe
+pub fn send_chunky_body(body: &Vec<u8>) {
+    let chunk_size: usize = 8;  
+    let mut i = 0;
 
-//     while i < body.len() {
-//         let chunk = build_chunk(body, chunk_size, i);
-//         let response = chunk;
-//         i += chunk_size;
-//     };
+    while i < body.len() {
+        let chunk = build_chunk(body, chunk_size, i);
+        let response = chunk;
+        i += chunk_size;
+    };
 
-//     let _ = send_response(stream, b"0\r\n\r\n".to_vec());
-// }
+    let _ = send_response(stream, b"0\r\n\r\n".to_vec());
+}

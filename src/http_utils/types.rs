@@ -48,8 +48,8 @@ impl Response {
                 let body_vec = body.clone();
                 let mut response_vec = Vec::new();
                 response_vec.extend_from_slice(status.as_bytes());
-                response_vec.extend_from_slice(&header_vec);
                 response_vec.extend_from_slice(b"\r\n");
+                response_vec.extend_from_slice(&header_vec);
                 response_vec.extend_from_slice(&body_vec);
                 response_vec
             }

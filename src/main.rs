@@ -81,7 +81,6 @@ fn handle_connection(stream: &mut TcpStream) {
         };
     
         log_response(&response);
-        println!("Response: {}", String::from_utf8_lossy(&response));
         let _ = send_response(stream, response);
 
         if headers.get("Connection").unwrap_or(&"keep-alive".to_string()).to_lowercase() == "close" {

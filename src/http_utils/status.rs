@@ -26,17 +26,17 @@ pub enum ParseError {
 impl Status {
     pub fn line(&self) -> &'static [u8] {
         match self {
-            Self::Ok => b"HTTP/1.1 200 OK\r\n",
-            Self::Created => b"HTTP/1.1 201 CREATED\r\n",
-            Self::NoContent => b"HTTP/1.1 204 NO CONTENT\r\n",
-            Self::NotFound => b"HTTP/1.1 404 NOT FOUND\r\n",
-            Self::BadRequest => b"HTTP/1.1 400 BAD REQUEST\r\n",
-            Self::Unauthorized => b"HTTP/1.1 401 UNAUTHORIZED\r\n",
-            Self::Forbidden => b"HTTP/1.1 403 FORBIDDEN\r\n",
-            Self::RequestTimeout => b"HTTP/1.1 408 REQUEST TIMEOUT\r\n",
-            Self::MethodNotAllowed => b"HTTP/1.1 405 METHOD NOT ALLOWED\r\n",
-            Self::InternalError => b"HTTP/1.1 500 INTERNAL SERVER ERROR\r\n",
-            Self::ServiceUnavailable => b"HTTP/1.1 503 SERVICE UNAVAILABLE\r\n",
+            Self::Ok => b"HTTP/1.1 200 OK",
+            Self::Created => b"HTTP/1.1 201 CREATED",
+            Self::NoContent => b"HTTP/1.1 204 NO CONTENT",
+            Self::NotFound => b"HTTP/1.1 404 NOT FOUND",
+            Self::BadRequest => b"HTTP/1.1 400 BAD REQUEST",
+            Self::Unauthorized => b"HTTP/1.1 401 UNAUTHORIZED",
+            Self::Forbidden => b"HTTP/1.1 403 FORBIDDEN",
+            Self::RequestTimeout => b"HTTP/1.1 408 REQUEST TIMEOUT",
+            Self::MethodNotAllowed => b"HTTP/1.1 405 METHOD NOT ALLOWED",
+            Self::InternalError => b"HTTP/1.1 500 INTERNAL SERVER ERROR",
+            Self::ServiceUnavailable => b"HTTP/1.1 503 SERVICE UNAVAILABLE",
         }
     }
 }

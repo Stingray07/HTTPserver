@@ -1,5 +1,3 @@
-use std::net::{TcpListener, TcpStream};
-
 mod http_utils;
 mod routes;
 mod api;
@@ -12,33 +10,39 @@ use crate::http_utils::request::request_logic::{is_api_request, error_handler};
 use crate::http_utils::request::extractor::extract_request_parts;
 use crate::http_utils::request::router::route_request;
 
-//TODO: SERVER RETURNING A MALFORMED RESPONSE 😥
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+use tokio::net::TcpListener;
+use tokio::net::TcpStream;
+
+// TODO: Add timeout
+#[tokio::main]
+async fn main() {
+    let listener = TcpListener::bind("127.0.0.1:7878").await.unwrap();
     println!("Server listening on http://127.0.0.1:7878");
 
-    for stream in listener.incoming(){
-        let mut stream = stream.unwrap();
-        handle_connection(&mut stream);
+    loop {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        tokio::spawn(async move {
+            handle_connection(&mut stream).await;
+        });
     }
 }
 
 
-fn handle_connection(stream: &mut TcpStream) {
-    stream.set_read_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
-    stream.set_write_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
+async fn handle_connection(stream: &mut TcpStream) {
+    // stream.set_read_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
+    // stream.set_write_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
 
     loop {
         println!("Waiting for request...");
         let mut dynamo_buffer = Vec::new();
         let mut pre_buffer = [0; 1024]; 
     
-        let full_request = match full_read_request(stream, &mut pre_buffer, &mut dynamo_buffer) {
+        let full_request = match full_read_request(stream, &mut pre_buffer, &mut dynamo_buffer).await {
             Ok(req) => req,
             Err(e) => {
                 eprintln!("Error reading request: {:?}", e);
                 let handler = error_handler(e);
-                let _ = send_response(stream, handler);
+                let _ = send_response(stream, handler).await;
                 return;
             }
         };
@@ -51,7 +55,7 @@ fn handle_connection(stream: &mut TcpStream) {
             Err(e) => {
                 eprintln!("Error parsing request: {:?}", e);
                 let handler = error_handler(e);
-                let _ = send_response(stream, handler);
+                let _ = send_response(stream, handler).await;
                 return;
             }
         };
@@ -65,7 +69,7 @@ fn handle_connection(stream: &mut TcpStream) {
             Err(e) => {
                 eprintln!("Error extracting request parts: {:?}", e);
                 let handler = error_handler(e);
-                let _ = send_response(stream, handler);
+                let _ = send_response(stream, handler).await;
                 return; 
             }
         };
@@ -75,13 +79,13 @@ fn handle_connection(stream: &mut TcpStream) {
             Err(e) => {
                 eprintln!("Error routing request: {:?}", e);
                 let handler = error_handler(e);
-                let _ = send_response(stream, handler);
+                let _ = send_response(stream, handler).await;
                 return;
             }
         };
     
         log_response(&response);
-        let _ = send_response(stream, response);
+        let _ = send_response(stream, response).await;
 
         if headers.get("Connection").unwrap_or(&"keep-alive".to_string()).to_lowercase() == "close" {
             println!("Close");

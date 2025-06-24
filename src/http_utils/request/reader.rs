@@ -1,12 +1,12 @@
 use crate::http_utils::status::ParseError;
 use crate::http_utils::parser;
-use std::net::TcpStream;
-use std::io::{Read};
+use tokio::net::TcpStream;
+use tokio::io::AsyncReadExt;
 
 
-fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, ParseError> {
+async fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, ParseError> {
     loop {
-        match stream.read(pre_buffer) {
+        match stream.read(pre_buffer).await {
             Ok(0) => {
                 eprintln!("Connection closed before complete headers");
                 return Err(ParseError::ConnectionAborted)
@@ -31,7 +31,7 @@ fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer:
     Ok(dynamo_buffer)
 }
 
-fn read_body<'a>(content_length: usize, stream: &mut TcpStream, full_body: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, ParseError> {
+async fn read_body<'a>(content_length: usize, stream: &mut TcpStream, full_body: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, ParseError> {
     if content_length == 0 {
         return Ok(full_body);
     }
@@ -39,7 +39,7 @@ fn read_body<'a>(content_length: usize, stream: &mut TcpStream, full_body: &'a m
     let mut body_buffer = vec![0; content_length - full_body.len()];
     let read_result = stream.read_exact(&mut body_buffer);
 
-    match read_result {
+    match read_result.await {
         Ok(_) => {
             full_body.extend_from_slice(&body_buffer);
             Ok(full_body)
@@ -55,10 +55,10 @@ fn read_body<'a>(content_length: usize, stream: &mut TcpStream, full_body: &'a m
     }
 }
 
-pub fn full_read_request(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &mut Vec<u8>) -> Result<Vec<u8>, ParseError> {
+pub async fn full_read_request(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &mut Vec<u8>) -> Result<Vec<u8>, ParseError> {
 
     println!("Reading header...");
-    match read_header(stream, pre_buffer, dynamo_buffer) {
+    match read_header(stream, pre_buffer, dynamo_buffer).await {
         Ok(_) => {
             println!("Header read");
         },
@@ -85,7 +85,7 @@ pub fn full_read_request(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_b
         }
     };
 
-    match read_body(content_length, stream, &mut full_body) {
+    match read_body(content_length, stream, &mut full_body).await {
         Ok(_) => {},
         Err(e) => {
             eprintln!("Error reading body: {:?}", e);

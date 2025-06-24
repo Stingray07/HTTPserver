@@ -1,12 +1,10 @@
-use std::net::TcpStream;
-use std::io::Write;
+use tokio::net::TcpStream;
+use tokio::io::AsyncWriteExt;
 use std::fs;
 use std::path::Path;
-use crate::http_utils::request::request_logic::error_handler;
-use crate::http_utils::response;
 use crate::http_utils::status::Status;
 use crate::http_utils::status::ParseError;
-use crate::http_utils::types::{ApiBody, Response, UniversalBody};
+use crate::http_utils::types::{ApiBody, Response};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -103,12 +101,12 @@ pub fn html_response(status: Status, title: &str, message: &str) -> Vec<u8> {
     response.convert_to_vec()
 }
 
-pub fn send_response(stream: &mut TcpStream, response: Vec<u8>) -> std::io::Result<()> {
+pub async fn send_response(stream: &mut TcpStream, response: Vec<u8>) -> std::io::Result<()> {
     log_response(&response);
-    stream.write_all(&response).unwrap();
+    stream.write_all(&response).await.unwrap();
 
     // Send the response right away because it might stay in the buffer
-    stream.flush().unwrap();
+    stream.flush().await.unwrap();
     Ok(())
 }
 
@@ -144,16 +142,16 @@ fn build_chunk(body: &Vec<u8>, chunk_size: usize, i: usize) -> Vec<u8> {
     response
 }
 
-// TODO: Separate this maybe
-pub fn send_chunky_body(body: &Vec<u8>) {
-    let chunk_size: usize = 8;  
-    let mut i = 0;
+// // TODO: Separate this maybe
+// pub fn send_chunky_body(body: &Vec<u8>) {
+//     let chunk_size: usize = 8;  
+//     let mut i = 0;
 
-    while i < body.len() {
-        let chunk = build_chunk(body, chunk_size, i);
-        let response = chunk;
-        i += chunk_size;
-    };
+//     while i < body.len() {
+//         let chunk = build_chunk(body, chunk_size, i);
+//         let response = chunk;
+//         i += chunk_size;
+//     };
 
-    let _ = send_response(stream, b"0\r\n\r\n".to_vec());
-}
+//     let _ = send_response(stream, b"0\r\n\r\n".to_vec());
+// }

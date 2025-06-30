@@ -13,7 +13,6 @@ use crate::http_utils::request::router::route_request;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 
-// TODO: Add timeout
 #[tokio::main]
 async fn main() {
     let listener = TcpListener::bind("127.0.0.1:7878").await.unwrap();
@@ -27,11 +26,7 @@ async fn main() {
     }
 }
 
-
 async fn handle_connection(stream: &mut TcpStream) {
-    // stream.set_read_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
-    // stream.set_write_timeout(Some(std::time::Duration::from_secs(10))).unwrap();
-
     loop {
         println!("Waiting for request...");
         let mut dynamo_buffer = Vec::new();

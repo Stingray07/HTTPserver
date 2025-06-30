@@ -2,6 +2,8 @@ use crate::http_utils::status::ParseError;
 use crate::http_utils::parser;
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
+use tokio::time::timeout;
+use tokio::time::Duration;
 
 
 async fn read_header<'a>(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &'a mut Vec<u8>) -> Result<&'a mut Vec<u8>, ParseError> {
@@ -58,16 +60,16 @@ async fn read_body<'a>(content_length: usize, stream: &mut TcpStream, full_body:
 pub async fn full_read_request(stream: &mut TcpStream, pre_buffer: &mut [u8], dynamo_buffer: &mut Vec<u8>) -> Result<Vec<u8>, ParseError> {
 
     println!("Reading header...");
-    match read_header(stream, pre_buffer, dynamo_buffer).await {
+    match timeout(Duration::from_secs(10), read_header(stream, pre_buffer, dynamo_buffer)).await {
         Ok(_) => {
             println!("Header read");
         },
         Err(e) => {
             eprintln!("Error reading header: {:?}", e);
-            let error = e;
-            return Err(error);
+            return Err(ParseError::ConnectionAborted);
         }
     }
+    
     let header_end = dynamo_buffer.windows(4).position(|window| window == b"\r\n\r\n");
     let content_length = parser::get_content_length(&dynamo_buffer);
     let body_start = header_end.unwrap() + 4;
@@ -85,16 +87,14 @@ pub async fn full_read_request(stream: &mut TcpStream, pre_buffer: &mut [u8], dy
         }
     };
 
-    match read_body(content_length, stream, &mut full_body).await {
+    match timeout(Duration::from_secs(10), read_body(content_length, stream, &mut full_body)).await {
         Ok(_) => {},
         Err(e) => {
             eprintln!("Error reading body: {:?}", e);
-            let error = e;
-            return Err(error);
+            return Err(ParseError::ConnectionAborted);
         }
     }
 
-    //Combine header and body
     let mut full_request = dynamo_buffer[..body_start].to_vec();
     full_request.extend_from_slice(&full_body);
 
